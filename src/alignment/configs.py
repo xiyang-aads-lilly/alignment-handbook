@@ -16,7 +16,7 @@ import dataclasses
 import os
 import sys
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, NewType, Optional, Tuple
+from typing import Any, Dict, List, NewType, Optional, Union
 
 import transformers
 from transformers import MODEL_FOR_CAUSAL_LM_MAPPING, HfArgumentParser
@@ -87,7 +87,7 @@ class H4ArgumentParser(HfArgumentParser):
 
         return outputs
 
-    def parse(self) -> DataClassType | Tuple[DataClassType]:
+    def parse(self):
         if len(sys.argv) == 2 and sys.argv[1].endswith(".yaml"):
             # If we pass only one argument to the script and it's the path to a YAML file,
             # let's parse it to get our arguments.
@@ -170,8 +170,8 @@ class ModelArguments:
         default=0.05,
         metadata={"help": ("LoRA dropout.")},
     )
-    lora_target_modules: Optional[List[str]] = field(
-        default=None,
+    lora_target_modules: Union[List[str], str] = field(
+        default="all",
         metadata={"help": ("LoRA target modules.")},
     )
     lora_modules_to_save: Optional[List[str]] = field(
@@ -231,6 +231,12 @@ class DataArguments:
                 "Whether to automatically insert an empty system message as the first message if `system` is mentioned in the chat template."
             )
         },
+    )
+    additional_special_tokens: Optional[Dict[str, str]] = field(
+        default=None, metadata={"help": "special tokens add to the tokenizer."}
+    )
+    additional_non_special_tokens: Optional[List[str]] = field(
+        default=None, metadata={"help": "new tokens add to the tokenizer."}
     )
 
 

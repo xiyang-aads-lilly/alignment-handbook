@@ -20,11 +20,16 @@ Supervised fine-tuning script for decoder language models.
 import logging
 import random
 import sys
+from pathlib import Path
+
+p = Path(__file__).parent.parent / "src"
+sys.path.append(p.as_posix())
 
 import datasets
 import torch
 import transformers
-from transformers import AutoModelForCausalLM, set_seed
+
+from transformers import set_seed, AutoModelForCausalLM
 
 from alignment import (
     DataArguments,
@@ -39,6 +44,9 @@ from alignment import (
     get_peft_config,
     get_quantization_config,
     get_tokenizer,
+    tokenizer_and_embedding_resize,
+    GpuUtilPrintCallBack,
+    ProfCallback,
 )
 from trl import SFTTrainer, setup_chat_format
 
@@ -80,7 +88,7 @@ def main():
     # Check for last checkpoint
     last_checkpoint = get_checkpoint(training_args)
     if last_checkpoint is not None and training_args.resume_from_checkpoint is None:
-        logger.info(f"Checkpoint detected, resuming training at {last_checkpoint=}.")
+        logger.info(f"Checkpoint detected, resuming training at {last_checkpoint}.")
 
     ###############
     # Load datasets
@@ -96,11 +104,32 @@ def main():
     )
     column_names = list(raw_datasets["train"].features)
 
+    #######################
+    # Load pretrained model
+    #######################
+    logger.info("*** Load pretrained model ***")
+    torch_dtype = (
+        model_args.torch_dtype if model_args.torch_dtype in ["auto", None] else getattr(torch, model_args.torch_dtype)
+    )
+    quantization_config = get_quantization_config(model_args)
+
+    model_kwargs = dict(
+        revision=model_args.model_revision,
+        trust_remote_code=model_args.trust_remote_code,
+        use_flash_attention_2=model_args.use_flash_attention_2, #attn_implementation="flash_attention_2"
+        torch_dtype=torch_dtype,
+        use_cache=False if training_args.gradient_checkpointing else True,
+        device_map=get_kbit_device_map() if quantization_config is not None else None,
+        quantization_config=quantization_config,
+    )
+    logger.info("*** Model loaded! ***")
+    model = AutoModelForCausalLM.from_pretrained(model_args.model_name_or_path, **model_kwargs)
+
     ################
     # Load tokenizer
     ################
-    tokenizer = get_tokenizer(model_args, data_args)
-
+    tokenizer = get_tokenizer(model_args, data_args, training_args)
+ 
     #######################
     # Load pretrained model
     #######################
@@ -126,6 +155,11 @@ def main():
         model = AutoModelForCausalLM.from_pretrained(model_args.model_name_or_path, **model_kwargs)
         model, tokenizer = setup_chat_format(model, tokenizer)
         model_kwargs = None
+
+    ###############
+    # update new tokens added to tokenizer
+    ###############
+    tokenizer_and_embedding_resize(data_args, tokenizer, model)
 
     #####################
     # Apply chat template
@@ -159,6 +193,21 @@ def main():
         for index in random.sample(range(len(raw_datasets["train"])), 3):
             logger.info(f"Sample {index} of the processed training set:\n\n{raw_datasets['train'][index]['text']}")
 
+    ##################
+    # PYTORCH profiler
+    ##################
+    # prof = torch.profiler.profile(
+    #     activities=[torch.profiler.ProfilerActivity.CPU, torch.profiler.ProfilerActivity.CUDA], 
+    #     schedule=torch.profiler.schedule(skip_first=3, wait=1, warmup=1, active=2, repeat=2),
+    #     on_trace_ready=torch.profiler.tensorboard_trace_handler(dir_name=training_args.logging_dir),
+    #     profile_memory=True,
+    #     with_stack=True,
+    #     record_shapes=True,
+    #     with_flops=True,
+    #     with_modules=True,
+    # )
+    # ProfCallback(prof)
+
     ########################
     # Initialize the Trainer
     ########################
@@ -174,6 +223,7 @@ def main():
         packing=True,
         peft_config=get_peft_config(model_args),
         dataset_kwargs=training_args.dataset_kwargs,
+        callbacks=[GpuUtilPrintCallBack()],
     )
 
     ###############
@@ -206,6 +256,7 @@ def main():
         "dataset_tags": list(data_args.dataset_mixer.keys()),
         "tags": ["alignment-handbook"],
     }
+
     if trainer.accelerator.is_main_process:
         trainer.create_model_card(**kwargs)
         # Restore k,v cache for fast inference
@@ -226,8 +277,12 @@ def main():
         logger.info("Pushing to hub...")
         trainer.push_to_hub(**kwargs)
 
+    torch.cuda.memory._dump_snapshot(Path(training_args.output_dir) / "GPU_RAM_PROFILE.pickle")
+    # prof.close()
     logger.info("*** Training complete ***")
 
 
 if __name__ == "__main__":
+    torch.cuda.memory._record_memory_history()
     main()
+    

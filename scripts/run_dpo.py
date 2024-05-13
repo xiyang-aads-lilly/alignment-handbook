@@ -16,6 +16,10 @@
 import logging
 import random
 import sys
+from pathlib import Path
+
+p = Path(__file__).parent.parent / "src"
+sys.path.append(p.as_posix())
 
 import torch
 import transformers
@@ -35,6 +39,7 @@ from alignment import (
     get_quantization_config,
     get_tokenizer,
     is_adapter_model,
+    ProfCallback,
 )
 from peft import PeftConfig, PeftModel
 from trl import DPOTrainer
@@ -69,7 +74,7 @@ def main():
     # Check for last checkpoint
     last_checkpoint = get_checkpoint(training_args)
     if last_checkpoint is not None and training_args.resume_from_checkpoint is None:
-        logger.info(f"Checkpoint detected, resuming training at {last_checkpoint=}.")
+        logger.info(f"Checkpoint detected, resuming training at {last_checkpoint}.")
 
     # Set seed for reproducibility
     set_seed(training_args.seed)
@@ -152,10 +157,13 @@ def main():
         device_map=get_kbit_device_map() if quantization_config is not None else None,
         quantization_config=quantization_config,
     )
-
     model = model_args.model_name_or_path
+
     if is_adapter_model(model, model_args.model_revision) is True:
-        logger.info(f"Loading SFT adapter for {model_args.model_name_or_path=}")
+        # Load the base model, merge the adapter weights and unload the adapter
+        # Note: to run QLoRA, you will need to merge the base model separately as the merged model in 16bit
+        logger.info(f"Merging PEFT adapters for {model_args.model_name_or_path}")
+
         peft_config = PeftConfig.from_pretrained(model_args.model_name_or_path, revision=model_args.model_revision)
         model_kwargs = dict(
             revision=model_args.base_model_revision,
@@ -184,6 +192,20 @@ def main():
         ref_model = None
         ref_model_kwargs = None
 
+    ##################
+    # PYTORCH profiler
+    ##################
+    prof = torch.profiler.profile(
+        activities=[torch.profiler.ProfilerActivity.CPU, torch.profiler.ProfilerActivity.CUDA], 
+        schedule=torch.profiler.schedule(skip_first=3, wait=1, warmup=1, active=2, repeat=2),
+        on_trace_ready=torch.profiler.tensorboard_trace_handler(dir_name=training_args.logging_dir),
+        profile_memory=True,
+        with_stack=True,
+        record_shapes=True,
+        with_flops=True,
+        with_modules=True,
+    )
+
     #########################
     # Instantiate DPO trainer
     #########################
@@ -201,6 +223,7 @@ def main():
         max_prompt_length=training_args.max_prompt_length,
         peft_config=get_peft_config(model_args),
         loss_type=training_args.loss_type,
+        callbacks=[], #[ProfCallback(prof)],
     )
 
     ###############
@@ -254,8 +277,10 @@ def main():
         logger.info("Pushing to hub...")
         trainer.push_to_hub(**kwargs)
 
+    torch.cuda.memory._dump_snapshot(Path(training_args.output_dir) / "GPU_RAM_PROFILE.pickle")
     logger.info("*** Training complete! ***")
 
 
 if __name__ == "__main__":
+    torch.cuda.memory._record_memory_history()
     main()

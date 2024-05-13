@@ -14,11 +14,11 @@
 # limitations under the License.
 import os
 from pathlib import Path
-from typing import Dict
 
 import torch
-from transformers import AutoTokenizer, BitsAndBytesConfig, PreTrainedTokenizer
 from transformers.trainer_utils import get_last_checkpoint
+from transformers import AutoTokenizer, BitsAndBytesConfig, PreTrainedTokenizer, AutoConfig, AutoModelForCausalLM
+
 
 from accelerate import Accelerator
 from huggingface_hub import list_repo_files
@@ -27,15 +27,17 @@ from huggingface_hub.utils._validators import HFValidationError
 from peft import LoraConfig, PeftConfig
 
 from .configs import DataArguments, DPOConfig, ModelArguments, SFTConfig
-from .data import DEFAULT_CHAT_TEMPLATE
+
+from .data import DEFAULT_CHAT_TEMPLATE, DEFAULT_PAD_TOKEN
 
 
 def get_current_device() -> int:
     """Get the current device. For GPU we return the local process index to enable multiple GPU training."""
+    print(Accelerator().local_process_index)
     return Accelerator().local_process_index if torch.cuda.is_available() else "cpu"
 
 
-def get_kbit_device_map() -> Dict[str, int] | None:
+def get_kbit_device_map():
     """Useful for running inference with quantized models by setting `device_map=get_peft_device_map()`"""
     return {"": get_current_device()} if torch.cuda.is_available() else None
 
@@ -63,9 +65,47 @@ def get_quantization_config(model_args: ModelArguments) -> BitsAndBytesConfig | 
     return quantization_config
 
 
-def get_tokenizer(
-    model_args: ModelArguments, data_args: DataArguments, auto_set_chat_template: bool = True
-) -> PreTrainedTokenizer:
+def tokenizer_and_embedding_resize(
+    data_args: DataArguments,
+    tokenizer: PreTrainedTokenizer,
+    model: AutoModelForCausalLM,
+):
+    """Resize tokenizer and embedding.
+
+    Note: This is the unoptimized version that may make your embedding size not be divisible by 64.
+    """
+    special_tokens_to_add = data_args.additional_special_tokens
+    non_special_tokens_to_add = data_args.additional_non_special_tokens
+
+    if special_tokens_to_add:
+        for k, v in special_tokens_to_add.items():
+            # get exsiting special token
+            stk = tokenizer.special_tokens_map.get(k, None)
+            if stk:
+                idx = tokenizer.convert_tokens_to_ids(stk)
+                tk_emb = model.get_input_embeddings().weight.data[idx]
+            else:
+                tk_emb =  model.get_input_embeddings().weight.data.mean(dim=0, keepdim=False)
+            
+            tokenizer.add_special_tokens({k: v})
+            model.resize_token_embeddings(len(tokenizer))
+            model.get_input_embeddings().weight.data[-1] = tk_emb
+    
+    # add non special extra tokens
+    if non_special_tokens_to_add:
+        num_new_tokens = tokenizer.add_tokens(non_special_tokens_to_add)
+        model.resize_token_embeddings(len(tokenizer))
+        if num_new_tokens > 0:
+            input_embeddings_data = model.get_input_embeddings().weight.data
+            output_embeddings_data = model.get_output_embeddings().weight.data
+
+            input_embeddings_avg = input_embeddings_data[:-num_new_tokens].mean(dim=0, keepdim=True)
+            output_embeddings_avg = output_embeddings_data[:-num_new_tokens].mean(dim=0, keepdim=True)
+
+            input_embeddings_data[-num_new_tokens:] = input_embeddings_avg
+            output_embeddings_data[-num_new_tokens:] = output_embeddings_avg
+
+def get_tokenizer(model_args: ModelArguments, data_args: DataArguments, train_args:SFTConfig, auto_set_chat_template: bool = True) -> PreTrainedTokenizer:
     """Get the tokenizer for the model."""
     tokenizer = AutoTokenizer.from_pretrained(
         model_args.model_name_or_path
@@ -81,21 +121,45 @@ def get_tokenizer(
         tokenizer.truncation_side = data_args.truncation_side
 
     # Set reasonable default for models without max length
+    # set tokenizer model max length from args
+    if train_args:
+        tokenizer.model_max_length = train_args.max_seq_length
+    
     if tokenizer.model_max_length > 100_000:
         tokenizer.model_max_length = 2048
 
     if data_args.chat_template is not None:
         tokenizer.chat_template = data_args.chat_template
+    
     elif auto_set_chat_template and tokenizer.chat_template is None and tokenizer.default_chat_template is None:
         tokenizer.chat_template = DEFAULT_CHAT_TEMPLATE
 
     return tokenizer
 
 
+def find_all_linear_names(model):
+    lora_module_names = set()
+    for name, module in model.named_modules():
+        if isinstance(module, torch.nn.Linear):
+            names = name.split('.')
+            lora_module_names.add(names[0] if len(names) == 1 else names[-1])
+    if 'lm_head' in lora_module_names:
+        lora_module_names.remove('lm_head')
+    return list(lora_module_names)
+
+
 def get_peft_config(model_args: ModelArguments) -> PeftConfig | None:
     if model_args.use_peft is False:
         return None
 
+    if model_args.lora_target_modules == "all":
+        model_config = AutoConfig.from_pretrained(model_args.model_name_or_path)
+        model_config.num_hidden_layers=1
+        temp_model = AutoModelForCausalLM.from_config(model_config)
+        model_args.lora_target_modules = find_all_linear_names(temp_model)
+        del temp_model
+        del model_config
+   
     peft_config = LoraConfig(
         r=model_args.lora_r,
         lora_alpha=model_args.lora_alpha,
@@ -119,7 +183,7 @@ def is_adapter_model(model_name_or_path: str, revision: str = "main") -> bool:
     return "adapter_model.safetensors" in repo_files or "adapter_model.bin" in repo_files
 
 
-def get_checkpoint(training_args: SFTConfig | DPOConfig) -> Path | None:
+def get_checkpoint(training_args):
     last_checkpoint = None
     if os.path.isdir(training_args.output_dir):
         last_checkpoint = get_last_checkpoint(training_args.output_dir)
