@@ -1,5 +1,5 @@
 # Model arguments
-model_name_or_path: /red/gatortron-phi/gpt/models/gpt_uf_deid_thepile_mimic_5b_bs4_ep1_release_HF
+model_name_or_path: ~/models/gpt_uf_deid_thepile_mimic_5b_bs4_ep1_release_HF
 model_revision: main
 torch_dtype: bfloat16
 use_flash_attention_2: false

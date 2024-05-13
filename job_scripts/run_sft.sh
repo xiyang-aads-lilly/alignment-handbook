@@ -1,9 +1,9 @@
 WORLD_SIZE=$(($SLURM_JOB_NUM_NODES*$SLURM_GPUS_PER_TASK))
 
 # HF cache
-export TMPDIR="/blue/yonghui.wu/alexgre/ctmp"
-export HF_DATASETS_CACHE="/blue/yonghui.wu/alexgre/ctmp"
-export HF_HOME="/blue/yonghui.wu/alexgre/ctmp"
+export TMPDIR="~/ctmp"
+export HF_DATASETS_CACHE="~/ctmp"
+export HF_HOME="~/ctmp"
 export TORCH_DISTRIBUTED_DEBUG=INFO
 export NCCL_DEBUG=INFO
 export NCCL_SOCKET_NTHREADS=16
@@ -36,32 +36,32 @@ export DEEPSPEED_TIMEOUT=120
 
 pip install -U git+https://github.com/huggingface/trl
 
-export WANDB_PROJECT="alignment"
-export WANDB_WATCH="parameters"
-export WANDB_API_KEY="19ad7c08b73ec0d81580d46372bcd14d2f207232"
-export WANDB_USERNAME="copy-o0o-paste"
+# export WANDB_PROJECT="alignment"
+# export WANDB_WATCH="parameters"
+# export WANDB_API_KEY="KEY"
+# export WANDB_USERNAME="copy-o0o-paste"
 
 accelerate launch \
-    --config_file /red/gatortron-phi/workspace/zzz/alignment-handbook/recipes/accelerate_configs/deepspeed_zero2.yaml \
+    --config_file ~/alignment-handbook/recipes/accelerate_configs/deepspeed_zero2.yaml \
     --main_process_ip $PRIMARY \
     --main_process_port $PRIMARY_PORT \
     --machine_rank $SLURM_PROCID \
     --num_machines $SLURM_JOB_NUM_NODES \
     --num_processes $WORLD_SIZE \
     --tee 3 \
-    /red/gatortron-phi/workspace/zzz/alignment-handbook/scripts/run_sft.py \
-    /red/gatortron-phi/workspace/zzz/alignment-handbook/recipes/zephyr-7b-beta/sft/config_full.yaml
+   ~/alignment-handbook/scripts/run_sft.py \
+   ~/alignment-handbook/recipes/zephyr-7b-beta/sft/config_full.yaml
 
 # ACCELERATE_LOG_LEVEL=info accelerate launch \
-#     --config_file /red/gatortron-phi/workspace/zzz/alignment-handbook/recipes/accelerate_configs/multi_gpu.yaml \
+#     --config_file ~/alignment-handbook/recipes/accelerate_configs/multi_gpu.yaml \
 #     --main_process_ip $PRIMARY \
 #     --main_process_port $PRIMARY_PORT \
 #     --machine_rank $SLURM_PROCID \
 #     --num_machines $SLURM_JOB_NUM_NODES \
 #     --num_processes $WORLD_SIZE \
 #     --tee 3 \
-#     /red/gatortron-phi/workspace/zzz/alignment-handbook/scripts/run_sft.py \
-#     /red/gatortron-phi/workspace/zzz/alignment-handbook/recipes/zephyr-7b-beta/sft/config_lora.yaml
+#     ~/alignment-handbook/scripts/run_sft.py \
+#     ~/alignment-handbook/recipes/zephyr-7b-beta/sft/config_lora.yaml
 
 
 

@@ -50,9 +50,9 @@ init_node_info() {
 init_node_info
 
 # HF cache
-export TMPDIR="/blue/yonghui.wu/alexgre/ctmp"
-export HF_DATASETS_CACHE="/blue/yonghui.wu/alexgre/ctmp"
-export HF_HOME="/blue/yonghui.wu/alexgre/ctmp"
+export TMPDIR="~/ctmp"
+export HF_DATASETS_CACHE="~/ctmp"
+export HF_HOME="~/ctmp"
 
 # Global environment constants recommended by Nvidia.
 EXCLUDE_IB_LIST=mlx5_4,mlx5_5,mlx5_10,mlx5_11
@@ -65,9 +65,9 @@ export NCCL_ASYNC_ERROR_HANDLING=1
 WORLD_SIZE=$(($SLURM_JOB_NUM_NODES*$SLURM_GPUS_PER_TASK))
 
 # HF cache
-export TMPDIR="/blue/yonghui.wu/alexgre/ctmp"
-export HF_DATASETS_CACHE="/blue/yonghui.wu/alexgre/ctmp"
-export HF_HOME="/blue/yonghui.wu/alexgre/ctmp"
+export TMPDIR="~/ctmp"
+export HF_DATASETS_CACHE="~/ctmp"
+export HF_HOME="~/ctmp"
 export TORCH_DISTRIBUTED_DEBUG=DETAIL
 export NCCL_DEBUG=DEBUG
 export ACCELERATE_LOG_LEVEL=DEBUG 
@@ -79,4 +79,4 @@ echo $SLURM_JOB_NUM_NODES:$SLURM_GPUS_PER_TASK:$WORLD_SIZE
 echo $SLURM_NODEID 
 
 # sft replicate HF model 
-srun --jobid $SLURM_JOB_ID singularity exec --nv $CONTAINER bash /red/gatortron-phi/workspace/zzz/alignment-handbook/recipes/run_dpo.sh 2>&1
+srun --jobid $SLURM_JOB_ID singularity exec --nv $CONTAINER bash ~/alignment-handbook/recipes/run_dpo.sh 2>&1

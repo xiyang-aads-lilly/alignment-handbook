@@ -5,7 +5,7 @@ From: nvcr.io/nvidia/pytorch:{{ VERSION }}
     VERSION=23.12-py3
 
 %files
-/red/gatortron-phi/workspace/zzz/alignment-handbook/requirements.txt requirements.txt
+requirements.txt requirements.txt
 
 %post
     python -m pip install --upgrade pip

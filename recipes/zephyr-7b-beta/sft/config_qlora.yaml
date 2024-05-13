@@ -10,14 +10,14 @@ use_peft: true
 lora_r: 16
 lora_alpha: 16
 lora_dropout: 0.05
-lora_target_modules:
-- q_proj
-- k_proj
-- v_proj
-- o_proj
-- gate_proj
-- up_proj
-- down_proj
+lora_target_modules: all
+# - q_proj
+# - k_proj
+# - v_proj
+# - o_proj
+# - gate_proj
+# - up_proj
+# - down_proj
 
 # Data training arguments
 chat_template: "{% for message in messages %}\n{% if message['role'] == 'user' %}\n{{ '<|user|>\n' + message['content'] + eos_token }}\n{% elif message['role'] == 'system' %}\n{{ '<|system|>\n' + message['content'] + eos_token }}\n{% elif message['role'] == 'assistant' %}\n{{ '<|assistant|>\n'  + message['content'] + eos_token }}\n{% endif %}\n{% if loop.last and add_generation_prompt %}\n{{ '<|assistant|>' }}\n{% endif %}\n{% endfor %}"

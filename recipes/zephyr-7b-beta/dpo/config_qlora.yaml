@@ -9,14 +9,14 @@ load_in_4bit: true
 lora_r: 128
 lora_alpha: 128
 lora_dropout: 0.05
-lora_target_modules:
-- q_proj
-- k_proj
-- v_proj
-- o_proj
-- gate_proj
-- up_proj
-- down_proj
+lora_target_modules: all
+# - q_proj
+# - k_proj
+# - v_proj
+# - o_proj
+# - gate_proj
+# - up_proj
+# - down_proj
 
 # Data training arguments
 

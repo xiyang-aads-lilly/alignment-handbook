@@ -16,9 +16,9 @@
 
 # default setup
 module load apptainer
-CONTAINER=/red/gatortron-phi/workspace/containers/alignment.sif
+CONTAINER=~/containers/alignment.sif
 
-source /red/gatortron-phi/workspace/zzz/alignment-handbook/recipes/util.sh
+source ~/alignment-handbook/recipes/util.sh
 
 # sft replicate HF model 
-srun --jobid $SLURM_JOB_ID singularity exec --nv $CONTAINER bash /red/gatortron-phi/workspace/zzz/alignment-handbook/recipes/run_sft.sh
+srun --jobid $SLURM_JOB_ID singularity exec --nv $CONTAINER bash ~/alignment-handbook/recipes/run_sft.sh
