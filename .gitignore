@@ -165,3 +165,7 @@ wandb/
 
 .DS_Store
 .vscode
+
+experiments/*
+!experiments/.gitkeep
+!experiments/demo*

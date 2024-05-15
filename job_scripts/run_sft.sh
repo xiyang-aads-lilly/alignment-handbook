@@ -34,7 +34,7 @@ export ACCELERATE_LOG_LEVEL=debug
 export ACCELERATE_DEBUG_MODE="1"
 export DEEPSPEED_TIMEOUT=120
 
-pip install -U git+https://github.com/huggingface/trl
+# pip install -U git+https://github.com/huggingface/trl
 
 # export WANDB_PROJECT="alignment"
 # export WANDB_WATCH="parameters"

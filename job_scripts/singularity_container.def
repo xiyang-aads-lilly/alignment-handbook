@@ -2,7 +2,7 @@ Bootstrap: docker
 From: nvcr.io/nvidia/pytorch:{{ VERSION }}
 
 %arguments
-    VERSION=23.12-py3
+    VERSION=24.04-py3
 
 %files
 requirements.txt requirements.txt

@@ -22,22 +22,23 @@ import random
 import sys
 from pathlib import Path
 
+
 p = Path(__file__).parent.parent / "src"
 sys.path.append(p.as_posix())
 
 import datasets
 import torch
 import transformers
-
-from transformers import set_seed, AutoModelForCausalLM
+from transformers import AutoModelForCausalLM, set_seed
 
 from alignment import (
     DataArguments,
+    GpuUtilPrintCallBack,
     H4ArgumentParser,
     ModelArguments,
+    ProfCallback,
     SFTConfig,
     apply_chat_template,
-    decontaminate_humaneval,
     get_checkpoint,
     get_datasets,
     get_kbit_device_map,
@@ -45,8 +46,6 @@ from alignment import (
     get_quantization_config,
     get_tokenizer,
     tokenizer_and_embedding_resize,
-    GpuUtilPrintCallBack,
-    ProfCallback,
 )
 from trl import SFTTrainer, setup_chat_format
 
@@ -109,14 +108,16 @@ def main():
     #######################
     logger.info("*** Load pretrained model ***")
     torch_dtype = (
-        model_args.torch_dtype if model_args.torch_dtype in ["auto", None] else getattr(torch, model_args.torch_dtype)
+        model_args.torch_dtype
+        if model_args.torch_dtype in ["auto", None]
+        else getattr(torch, model_args.torch_dtype)
     )
     quantization_config = get_quantization_config(model_args)
 
     model_kwargs = dict(
         revision=model_args.model_revision,
         trust_remote_code=model_args.trust_remote_code,
-        use_flash_attention_2=model_args.use_flash_attention_2, #attn_implementation="flash_attention_2"
+        use_flash_attention_2=model_args.use_flash_attention_2,  # attn_implementation="flash_attention_2"
         torch_dtype=torch_dtype,
         use_cache=False if training_args.gradient_checkpointing else True,
         device_map=get_kbit_device_map() if quantization_config is not None else None,
@@ -129,13 +130,15 @@ def main():
     # Load tokenizer
     ################
     tokenizer = get_tokenizer(model_args, data_args, training_args)
- 
+
     #######################
     # Load pretrained model
     #######################
     logger.info("*** Load pretrained model ***")
     torch_dtype = (
-        model_args.torch_dtype if model_args.torch_dtype in ["auto", None] else getattr(torch, model_args.torch_dtype)
+        model_args.torch_dtype
+        if model_args.torch_dtype in ["auto", None]
+        else getattr(torch, model_args.torch_dtype)
     )
     quantization_config = get_quantization_config(model_args)
 
@@ -151,7 +154,10 @@ def main():
 
     model = model_args.model_name_or_path
     # For ChatML we need to add special tokens and resize the embedding layer
-    if "<|im_start|>" in tokenizer.chat_template and "gemma-tokenizer-chatml" not in tokenizer.name_or_path:
+    if (
+        "<|im_start|>" in tokenizer.chat_template
+        and "gemma-tokenizer-chatml" not in tokenizer.name_or_path
+    ):
         model = AutoModelForCausalLM.from_pretrained(model_args.model_name_or_path, **model_kwargs)
         model, tokenizer = setup_chat_format(model, tokenizer)
         model_kwargs = None
@@ -176,28 +182,22 @@ def main():
         desc="Applying chat template",
     )
 
-    ##########################
-    # Decontaminate benchmarks
-    ##########################
-    num_raw_train_samples = len(raw_datasets["train"])
-    raw_datasets = raw_datasets.filter(decontaminate_humaneval, batched=True, batch_size=10_000, num_proc=1)
-    num_filtered_train_samples = num_raw_train_samples - len(raw_datasets["train"])
-    logger.info(
-        f"Decontaminated {num_filtered_train_samples} ({num_filtered_train_samples/num_raw_train_samples * 100:.2f}%) samples from the training set."
-    )
-
     train_dataset = raw_datasets["train"]
     eval_dataset = raw_datasets["test"]
 
-    with training_args.main_process_first(desc="Log a few random samples from the processed training set"):
+    with training_args.main_process_first(
+        desc="Log a few random samples from the processed training set"
+    ):
         for index in random.sample(range(len(raw_datasets["train"])), 3):
-            logger.info(f"Sample {index} of the processed training set:\n\n{raw_datasets['train'][index]['text']}")
+            logger.info(
+                f"Sample {index} of the processed training set:\n\n{raw_datasets['train'][index]['text']}"
+            )
 
     ##################
     # PYTORCH profiler
     ##################
     # prof = torch.profiler.profile(
-    #     activities=[torch.profiler.ProfilerActivity.CPU, torch.profiler.ProfilerActivity.CUDA], 
+    #     activities=[torch.profiler.ProfilerActivity.CPU, torch.profiler.ProfilerActivity.CUDA],
     #     schedule=torch.profiler.schedule(skip_first=3, wait=1, warmup=1, active=2, repeat=2),
     #     on_trace_ready=torch.profiler.tensorboard_trace_handler(dir_name=training_args.logging_dir),
     #     profile_memory=True,
@@ -285,4 +285,3 @@ def main():
 if __name__ == "__main__":
     torch.cuda.memory._record_memory_history()
     main()
-    

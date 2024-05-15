@@ -1,3 +1,4 @@
+# for slurm use
 get_unused_port() {
     # Well-known ports end at 1023.  On Linux, dynamic ports start at 32768
     # (see /proc/sys/net/ipv4/ip_local_port_range).

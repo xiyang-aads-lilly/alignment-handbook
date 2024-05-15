@@ -4,7 +4,7 @@ deepspeed_config:
   deepspeed_multinode_launcher: standard
   offload_optimizer_device: none
   offload_param_device: none
-  zero3_init_flag: true
+  zero3_init_flag: false
   zero3_save_16bit_model: false
   zero_stage: 2
   mixed_precision: bf16
