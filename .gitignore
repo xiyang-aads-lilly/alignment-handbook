@@ -169,3 +169,4 @@ wandb/
 experiments/*
 !experiments/.gitkeep
 !experiments/demo*
+!experiments/README.md
