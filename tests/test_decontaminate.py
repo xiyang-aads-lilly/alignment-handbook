@@ -39,10 +39,14 @@ class DecontamintateHumanEvalTest(TestCase):
             }
         )
         tokenizer = AutoTokenizer.from_pretrained("HuggingFaceH4/zephyr-7b-beta")
-        self.dataset = dataset.map(apply_chat_template, fn_kwargs={"tokenizer": tokenizer, "task": "sft"})
+        self.dataset = dataset.map(
+            apply_chat_template, fn_kwargs={"tokenizer": tokenizer, "task": "sft"}
+        )
 
     def test_decontamination(self):
         """Test we decontaminate HumanEval samples correctly"""
-        decontaminated_dataset = self.dataset.filter(decontaminate_humaneval, batched=True)
+        decontaminated_dataset = self.dataset.filter(
+            decontaminate_humaneval, batched=True
+        )
         # Check we recover just the first message
         self.assertEqual(decontaminated_dataset[0]["text"], self.dataset[0]["text"])

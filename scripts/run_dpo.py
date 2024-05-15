@@ -18,6 +18,7 @@ import random
 import sys
 from pathlib import Path
 
+
 p = Path(__file__).parent.parent / "src"
 sys.path.append(p.as_posix())
 
@@ -30,6 +31,7 @@ from alignment import (
     DPOConfig,
     H4ArgumentParser,
     ModelArguments,
+    ProfCallback,
     apply_chat_template,
     decontaminate_humaneval,
     get_checkpoint,
@@ -39,7 +41,6 @@ from alignment import (
     get_quantization_config,
     get_tokenizer,
     is_adapter_model,
-    ProfCallback,
 )
 from peft import PeftConfig, PeftModel
 from trl import DPOTrainer
@@ -86,7 +87,14 @@ def main():
         data_args,
         splits=data_args.dataset_splits,
         configs=data_args.dataset_configs,
-        columns_to_keep=["messages", "chosen", "rejected", "prompt", "completion", "label"],
+        columns_to_keep=[
+            "messages",
+            "chosen",
+            "rejected",
+            "prompt",
+            "completion",
+            "label",
+        ],
     )
     logger.info(
         f"Training on the following splits: {[split + ' : ' + str(dset.num_rows) for split, dset in raw_datasets.items()]}"
@@ -96,7 +104,9 @@ def main():
     #####################################
     # Load tokenizer and process datasets
     #####################################
-    data_args.truncation_side = "left"  # Truncate from left to ensure we don't lose labels in final turn
+    data_args.truncation_side = (
+        "left"  # Truncate from left to ensure we don't lose labels in final turn
+    )
     tokenizer = get_tokenizer(model_args, data_args)
 
     #####################
@@ -134,17 +144,29 @@ def main():
     # Replace column names with what TRL needs, text_chosen -> chosen and text_rejected -> rejected
     for split in ["train", "test"]:
         raw_datasets[split] = raw_datasets[split].rename_columns(
-            {"text_prompt": "prompt", "text_chosen": "chosen", "text_rejected": "rejected"}
+            {
+                "text_prompt": "prompt",
+                "text_chosen": "chosen",
+                "text_rejected": "rejected",
+            }
         )
 
     # Log a few random samples from the training set:
     for index in random.sample(range(len(raw_datasets["train"])), 3):
-        logger.info(f"Prompt sample {index} of the raw training set:\n\n{raw_datasets['train'][index]['prompt']}")
-        logger.info(f"Chosen sample {index} of the raw training set:\n\n{raw_datasets['train'][index]['chosen']}")
-        logger.info(f"Rejected sample {index} of the raw training set:\n\n{raw_datasets['train'][index]['rejected']}")
+        logger.info(
+            f"Prompt sample {index} of the raw training set:\n\n{raw_datasets['train'][index]['prompt']}"
+        )
+        logger.info(
+            f"Chosen sample {index} of the raw training set:\n\n{raw_datasets['train'][index]['chosen']}"
+        )
+        logger.info(
+            f"Rejected sample {index} of the raw training set:\n\n{raw_datasets['train'][index]['rejected']}"
+        )
 
     torch_dtype = (
-        model_args.torch_dtype if model_args.torch_dtype in ["auto", None] else getattr(torch, model_args.torch_dtype)
+        model_args.torch_dtype
+        if model_args.torch_dtype in ["auto", None]
+        else getattr(torch, model_args.torch_dtype)
     )
     quantization_config = get_quantization_config(model_args)
 
@@ -164,14 +186,18 @@ def main():
         # Note: to run QLoRA, you will need to merge the base model separately as the merged model in 16bit
         logger.info(f"Merging PEFT adapters for {model_args.model_name_or_path}")
 
-        peft_config = PeftConfig.from_pretrained(model_args.model_name_or_path, revision=model_args.model_revision)
+        peft_config = PeftConfig.from_pretrained(
+            model_args.model_name_or_path, revision=model_args.model_revision
+        )
         model_kwargs = dict(
             revision=model_args.base_model_revision,
             trust_remote_code=model_args.trust_remote_code,
             use_flash_attention_2=model_args.use_flash_attention_2,
             torch_dtype=torch_dtype,
             use_cache=False if training_args.gradient_checkpointing else True,
-            device_map=get_kbit_device_map() if quantization_config is not None else None,
+            device_map=(
+                get_kbit_device_map() if quantization_config is not None else None
+            ),
             quantization_config=quantization_config,
         )
         base_model = AutoModelForCausalLM.from_pretrained(
@@ -196,9 +222,16 @@ def main():
     # PYTORCH profiler
     ##################
     prof = torch.profiler.profile(
-        activities=[torch.profiler.ProfilerActivity.CPU, torch.profiler.ProfilerActivity.CUDA], 
-        schedule=torch.profiler.schedule(skip_first=3, wait=1, warmup=1, active=2, repeat=2),
-        on_trace_ready=torch.profiler.tensorboard_trace_handler(dir_name=training_args.logging_dir),
+        activities=[
+            torch.profiler.ProfilerActivity.CPU,
+            torch.profiler.ProfilerActivity.CUDA,
+        ],
+        schedule=torch.profiler.schedule(
+            skip_first=3, wait=1, warmup=1, active=2, repeat=2
+        ),
+        on_trace_ready=torch.profiler.tensorboard_trace_handler(
+            dir_name=training_args.logging_dir
+        ),
         profile_memory=True,
         with_stack=True,
         record_shapes=True,
@@ -223,7 +256,7 @@ def main():
         max_prompt_length=training_args.max_prompt_length,
         peft_config=get_peft_config(model_args),
         loss_type=training_args.loss_type,
-        callbacks=[], #[ProfCallback(prof)],
+        callbacks=[],  # [ProfCallback(prof)],
     )
 
     ###############
@@ -277,7 +310,9 @@ def main():
         logger.info("Pushing to hub...")
         trainer.push_to_hub(**kwargs)
 
-    torch.cuda.memory._dump_snapshot(Path(training_args.output_dir) / "GPU_RAM_PROFILE.pickle")
+    torch.cuda.memory._dump_snapshot(
+        Path(training_args.output_dir) / "GPU_RAM_PROFILE.pickle"
+    )
     logger.info("*** Training complete! ***")
 
 

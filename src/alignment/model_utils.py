@@ -16,9 +16,14 @@ import os
 from pathlib import Path
 
 import torch
+from transformers import (
+    AutoConfig,
+    AutoModelForCausalLM,
+    AutoTokenizer,
+    BitsAndBytesConfig,
+    PreTrainedTokenizer,
+)
 from transformers.trainer_utils import get_last_checkpoint
-from transformers import AutoTokenizer, BitsAndBytesConfig, PreTrainedTokenizer, AutoConfig, AutoModelForCausalLM
-
 
 from accelerate import Accelerator
 from huggingface_hub import list_repo_files
@@ -26,8 +31,7 @@ from huggingface_hub.utils._errors import RepositoryNotFoundError
 from huggingface_hub.utils._validators import HFValidationError
 from peft import LoraConfig, PeftConfig
 
-from .configs import DataArguments, DPOConfig, ModelArguments, SFTConfig
-
+from .configs import DataArguments, ModelArguments
 from .data import DEFAULT_CHAT_TEMPLATE, DEFAULT_PAD_TOKEN
 
 
@@ -85,12 +89,14 @@ def tokenizer_and_embedding_resize(
                 idx = tokenizer.convert_tokens_to_ids(stk)
                 tk_emb = model.get_input_embeddings().weight.data[idx]
             else:
-                tk_emb =  model.get_input_embeddings().weight.data.mean(dim=0, keepdim=False)
-            
+                tk_emb = model.get_input_embeddings().weight.data.mean(
+                    dim=0, keepdim=False
+                )
+
             tokenizer.add_special_tokens({k: v})
             model.resize_token_embeddings(len(tokenizer))
             model.get_input_embeddings().weight.data[-1] = tk_emb
-    
+
     # add non special extra tokens
     if non_special_tokens_to_add:
         num_new_tokens = tokenizer.add_tokens(non_special_tokens_to_add)
@@ -99,18 +105,30 @@ def tokenizer_and_embedding_resize(
             input_embeddings_data = model.get_input_embeddings().weight.data
             output_embeddings_data = model.get_output_embeddings().weight.data
 
-            input_embeddings_avg = input_embeddings_data[:-num_new_tokens].mean(dim=0, keepdim=True)
-            output_embeddings_avg = output_embeddings_data[:-num_new_tokens].mean(dim=0, keepdim=True)
+            input_embeddings_avg = input_embeddings_data[:-num_new_tokens].mean(
+                dim=0, keepdim=True
+            )
+            output_embeddings_avg = output_embeddings_data[:-num_new_tokens].mean(
+                dim=0, keepdim=True
+            )
 
             input_embeddings_data[-num_new_tokens:] = input_embeddings_avg
             output_embeddings_data[-num_new_tokens:] = output_embeddings_avg
 
-def get_tokenizer(model_args: ModelArguments, data_args: DataArguments, train_args:SFTConfig, auto_set_chat_template: bool = True) -> PreTrainedTokenizer:
+
+def get_tokenizer(
+    model_args: ModelArguments,
+    data_args: DataArguments,
+    train_args,
+    auto_set_chat_template: bool = True,
+) -> PreTrainedTokenizer:
     """Get the tokenizer for the model."""
     tokenizer = AutoTokenizer.from_pretrained(
-        model_args.model_name_or_path
-        if model_args.tokenizer_name_or_path is None
-        else model_args.tokenizer_name_or_path,
+        (
+            model_args.model_name_or_path
+            if model_args.tokenizer_name_or_path is None
+            else model_args.tokenizer_name_or_path
+        ),
         revision=model_args.model_revision,
         trust_remote_code=model_args.trust_remote_code,
     )
@@ -124,14 +142,18 @@ def get_tokenizer(model_args: ModelArguments, data_args: DataArguments, train_ar
     # set tokenizer model max length from args
     if train_args:
         tokenizer.model_max_length = train_args.max_seq_length
-    
+
     if tokenizer.model_max_length > 100_000:
         tokenizer.model_max_length = 2048
 
     if data_args.chat_template is not None:
         tokenizer.chat_template = data_args.chat_template
-    
-    elif auto_set_chat_template and tokenizer.chat_template is None and tokenizer.default_chat_template is None:
+
+    elif (
+        auto_set_chat_template
+        and tokenizer.chat_template is None
+        and tokenizer.default_chat_template is None
+    ):
         tokenizer.chat_template = DEFAULT_CHAT_TEMPLATE
 
     return tokenizer
@@ -141,10 +163,10 @@ def find_all_linear_names(model):
     lora_module_names = set()
     for name, module in model.named_modules():
         if isinstance(module, torch.nn.Linear):
-            names = name.split('.')
+            names = name.split(".")
             lora_module_names.add(names[0] if len(names) == 1 else names[-1])
-    if 'lm_head' in lora_module_names:
-        lora_module_names.remove('lm_head')
+    if "lm_head" in lora_module_names:
+        lora_module_names.remove("lm_head")
     return list(lora_module_names)
 
 
@@ -154,12 +176,12 @@ def get_peft_config(model_args: ModelArguments) -> PeftConfig | None:
 
     if model_args.lora_target_modules == "all":
         model_config = AutoConfig.from_pretrained(model_args.model_name_or_path)
-        model_config.num_hidden_layers=1
+        model_config.num_hidden_layers = 1
         temp_model = AutoModelForCausalLM.from_config(model_config)
         model_args.lora_target_modules = find_all_linear_names(temp_model)
         del temp_model
         del model_config
-   
+
     peft_config = LoraConfig(
         r=model_args.lora_r,
         lora_alpha=model_args.lora_alpha,
@@ -180,7 +202,9 @@ def is_adapter_model(model_name_or_path: str, revision: str = "main") -> bool:
     except (HFValidationError, RepositoryNotFoundError):
         # If not, check local repo
         repo_files = os.listdir(model_name_or_path)
-    return "adapter_model.safetensors" in repo_files or "adapter_model.bin" in repo_files
+    return (
+        "adapter_model.safetensors" in repo_files or "adapter_model.bin" in repo_files
+    )
 
 
 def get_checkpoint(training_args):

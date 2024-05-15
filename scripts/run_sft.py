@@ -96,7 +96,14 @@ def main():
         data_args,
         splits=data_args.dataset_splits,
         configs=data_args.dataset_configs,
-        columns_to_keep=["messages", "chosen", "rejected", "prompt", "completion", "label"],
+        columns_to_keep=[
+            "messages",
+            "chosen",
+            "rejected",
+            "prompt",
+            "completion",
+            "label",
+        ],
     )
     logger.info(
         f"Training on the following datasets and their proportions: {[split + ' : ' + str(dset.num_rows) for split, dset in raw_datasets.items()]}"
@@ -124,7 +131,9 @@ def main():
         quantization_config=quantization_config,
     )
     logger.info("*** Model loaded! ***")
-    model = AutoModelForCausalLM.from_pretrained(model_args.model_name_or_path, **model_kwargs)
+    model = AutoModelForCausalLM.from_pretrained(
+        model_args.model_name_or_path, **model_kwargs
+    )
 
     ################
     # Load tokenizer
@@ -158,7 +167,9 @@ def main():
         "<|im_start|>" in tokenizer.chat_template
         and "gemma-tokenizer-chatml" not in tokenizer.name_or_path
     ):
-        model = AutoModelForCausalLM.from_pretrained(model_args.model_name_or_path, **model_kwargs)
+        model = AutoModelForCausalLM.from_pretrained(
+            model_args.model_name_or_path, **model_kwargs
+        )
         model, tokenizer = setup_chat_format(model, tokenizer)
         model_kwargs = None
 
@@ -277,7 +288,9 @@ def main():
         logger.info("Pushing to hub...")
         trainer.push_to_hub(**kwargs)
 
-    torch.cuda.memory._dump_snapshot(Path(training_args.output_dir) / "GPU_RAM_PROFILE.pickle")
+    torch.cuda.memory._dump_snapshot(
+        Path(training_args.output_dir) / "GPU_RAM_PROFILE.pickle"
+    )
     # prof.close()
     logger.info("*** Training complete ***")
 

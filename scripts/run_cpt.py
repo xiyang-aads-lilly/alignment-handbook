@@ -100,27 +100,36 @@ def main():
 
     if train_dataset is None:
         raise ValueError(
-            "Training set must be included (so make sure that your dataset has a split with" " 'train' in the name)."
+            "Training set must be included (so make sure that your dataset has a split with"
+            " 'train' in the name)."
         )
 
     if training_args.do_eval and eval_dataset is None:
-        raise ValueError("'--do_eval' enabled so make sure that your dataset has a split with 'test' in the name.")
+        raise ValueError(
+            "'--do_eval' enabled so make sure that your dataset has a split with 'test' in the name."
+        )
 
     ################
     # Load tokenizer
     ################
     tokenizer = get_tokenizer(model_args, data_args, auto_set_chat_template=False)
 
-    with training_args.main_process_first(desc="Log a few random samples from the processed training set"):
+    with training_args.main_process_first(
+        desc="Log a few random samples from the processed training set"
+    ):
         for index in random.sample(range(len(raw_datasets["train"])), 3):
-            logger.info(f"Sample {index} of the processed training set:\n\n{raw_datasets['train'][index]['text']}")
+            logger.info(
+                f"Sample {index} of the processed training set:\n\n{raw_datasets['train'][index]['text']}"
+            )
 
     #######################
     # Load pretrained model
     #######################
     logger.info("*** Load pretrained model ***")
     torch_dtype = (
-        model_args.torch_dtype if model_args.torch_dtype in ["auto", None] else getattr(torch, model_args.torch_dtype)
+        model_args.torch_dtype
+        if model_args.torch_dtype in ["auto", None]
+        else getattr(torch, model_args.torch_dtype)
     )
     quantization_config = get_quantization_config(model_args)
 

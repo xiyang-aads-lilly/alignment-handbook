@@ -1,5 +1,6 @@
-from pynvml import *
 from transformers import TrainerCallback
+
+from pynvml import *
 
 
 class GpuUtilPrintCallBack(TrainerCallback):
