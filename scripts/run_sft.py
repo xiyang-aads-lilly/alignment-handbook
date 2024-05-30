@@ -45,7 +45,6 @@ from alignment import (
     get_peft_config,
     get_quantization_config,
     get_tokenizer,
-    tokenizer_and_embedding_resize,
 )
 from trl import SFTTrainer, setup_chat_format
 
@@ -110,31 +109,6 @@ def main():
     )
     column_names = list(raw_datasets["train"].features)
 
-    #######################
-    # Load pretrained model
-    #######################
-    logger.info("*** Load pretrained model ***")
-    torch_dtype = (
-        model_args.torch_dtype
-        if model_args.torch_dtype in ["auto", None]
-        else getattr(torch, model_args.torch_dtype)
-    )
-    quantization_config = get_quantization_config(model_args)
-
-    model_kwargs = dict(
-        revision=model_args.model_revision,
-        trust_remote_code=model_args.trust_remote_code,
-        use_flash_attention_2=model_args.use_flash_attention_2,  # attn_implementation="flash_attention_2"
-        torch_dtype=torch_dtype,
-        use_cache=False if training_args.gradient_checkpointing else True,
-        device_map=get_kbit_device_map() if quantization_config is not None else None,
-        quantization_config=quantization_config,
-    )
-    logger.info("*** Model loaded! ***")
-    model = AutoModelForCausalLM.from_pretrained(
-        model_args.model_name_or_path, **model_kwargs
-    )
-
     ################
     # Load tokenizer
     ################
@@ -162,6 +136,7 @@ def main():
     )
 
     model = model_args.model_name_or_path
+
     # For ChatML we need to add special tokens and resize the embedding layer
     if (
         "<|im_start|>" in tokenizer.chat_template
@@ -172,11 +147,6 @@ def main():
         )
         model, tokenizer = setup_chat_format(model, tokenizer)
         model_kwargs = None
-
-    ###############
-    # update new tokens added to tokenizer
-    ###############
-    tokenizer_and_embedding_resize(data_args, tokenizer, model)
 
     #####################
     # Apply chat template
@@ -222,30 +192,55 @@ def main():
     ########################
     # Initialize the Trainer
     ########################
-    trainer = SFTTrainer(
-        model=model,
-        model_init_kwargs=model_kwargs,
-        args=training_args,
-        train_dataset=train_dataset,
-        eval_dataset=eval_dataset,
-        dataset_text_field="text",
-        max_seq_length=training_args.max_seq_length,
-        tokenizer=tokenizer,
-        packing=True,
-        peft_config=get_peft_config(model_args),
-        dataset_kwargs=training_args.dataset_kwargs,
-        callbacks=[GpuUtilPrintCallBack()],
-    )
+    if model_args.use_unsloth:
+        from alignment.unsloth import get_unsloth_peft_model
+
+        peft_config = get_peft_config(model_args)
+        model = AutoModelForCausalLM.from_pretrained(
+            model_args.model_name_or_path, **model_kwargs
+        )
+        model, tokenizer = setup_chat_format(model, tokenizer)
+        model = get_unsloth_peft_model(model, training_args.max_seq_length, peft_config)
+
+        trainer = SFTTrainer(
+            model=model,
+            args=training_args,
+            train_dataset=train_dataset,
+            eval_dataset=eval_dataset,
+            dataset_text_field="text",
+            max_seq_length=training_args.max_seq_length,
+            tokenizer=tokenizer,
+            packing=True,
+            dataset_kwargs=training_args.dataset_kwargs,
+            callbacks=[GpuUtilPrintCallBack()],
+        )
+    else:
+        trainer = SFTTrainer(
+            model=model,
+            model_init_kwargs=model_kwargs,
+            args=training_args,
+            train_dataset=train_dataset,
+            eval_dataset=eval_dataset,
+            dataset_text_field="text",
+            max_seq_length=training_args.max_seq_length,
+            tokenizer=tokenizer,
+            packing=True,
+            peft_config=get_peft_config(model_args),
+            dataset_kwargs=training_args.dataset_kwargs,
+            callbacks=[GpuUtilPrintCallBack()],
+        )
 
     ###############
     # Training loop
     ###############
     logger.info("*** Train ***")
+
     checkpoint = None
     if training_args.resume_from_checkpoint is not None:
         checkpoint = training_args.resume_from_checkpoint
     elif last_checkpoint is not None:
         checkpoint = last_checkpoint
+
     train_result = trainer.train(resume_from_checkpoint=checkpoint)
     metrics = train_result.metrics
     metrics["train_samples"] = len(train_dataset)

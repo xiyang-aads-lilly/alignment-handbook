@@ -6,7 +6,7 @@ ROOT=$(realpath ~)
 CONTAINER=${ROOT}/project/singularity_containers/py2402.sig
 
 # CUDA
-export CUDA_VISIBLE_DEVICES=0,1,2
+export CUDA_VISIBLE_DEVICES=0,1
 
 # PATH
 DEMO_PATH=${ROOT}/project/alignment_handbook/experiments

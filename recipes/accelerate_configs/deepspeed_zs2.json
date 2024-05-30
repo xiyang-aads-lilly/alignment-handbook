@@ -1,17 +1,24 @@
 {
     "fp16": {
-        "enabled": true,
+        "enabled": false,
         "loss_scale": 0,
+        "auto_cast": false,
         "loss_scale_window": 1000,
         "initial_scale_power": 16,
         "hysteresis": 2,
+        "consecutive_hysteresis": false,
         "min_loss_scale": 1
+    },
+    "bf16": {
+        "enabled": true
     },
     "optimizer": {
         "type": "AdamW",
         "params": {
             "lr": "auto",
             "weight_decay": "auto",
+            "betas": "auto",
+            "eps": "auto",
             "torch_adam": true,
             "adam_w_mode": true
         }

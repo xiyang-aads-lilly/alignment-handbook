@@ -172,6 +172,10 @@ class ModelArguments:
             )
         },
     )
+    use_unsloth: bool = field(
+        default=False,
+        metadata={"help": ("Whether to use unsloth to accelerate lora.")},
+    )
     use_peft: bool = field(
         default=False,
         metadata={"help": ("Whether to use PEFT or not for training.")},
