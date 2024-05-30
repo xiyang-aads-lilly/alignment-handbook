@@ -66,18 +66,32 @@ def load_unsloth_pretrained_model(config, model_args):
     return model
 
 
-def get_unsloth_peft_model(model, max_seq_length, peft_kwargs: Dict[str, Any]):
+def get_unsloth_peft_model(model_name, max_seq_length, peft_kwargs: Dict[str, Any]):
     r"""
     Gets the peft model for the pretrained model with unsloth. Used in training.
     """
     from unsloth import FastLanguageModel
+
+    model, tokenizer = FastLanguageModel.from_pretrained(
+        model_name=model_name,
+        max_seq_length=max_seq_length,
+        dtype=None,
+        load_in_4bit=True,
+    )
 
     unsloth_peft_kwargs = {
         "model": model,
         "max_seq_length": max_seq_length,
         "use_gradient_checkpointing": "unsloth",
     }
-    return FastLanguageModel.get_peft_model(**peft_kwargs, **unsloth_peft_kwargs)
+
+    peft_kwargs["lora_dropout"] = 0.0
+    peft_kwargs.pop("task_type", None)
+
+    return (
+        FastLanguageModel.get_peft_model(**unsloth_peft_kwargs, **peft_kwargs),
+        tokenizer,
+    )
 
 
 def load_unsloth_peft_model(config, model_args, is_trainable: bool):

@@ -141,6 +141,7 @@ def main():
     if (
         "<|im_start|>" in tokenizer.chat_template
         and "gemma-tokenizer-chatml" not in tokenizer.name_or_path
+        and not model_args.use_unsloth
     ):
         model = AutoModelForCausalLM.from_pretrained(
             model_args.model_name_or_path, **model_kwargs
@@ -151,6 +152,7 @@ def main():
     #####################
     # Apply chat template
     #####################
+    logger.info("*** apply chat template ***")
     raw_datasets = raw_datasets.map(
         apply_chat_template,
         fn_kwargs={
@@ -192,15 +194,23 @@ def main():
     ########################
     # Initialize the Trainer
     ########################
+
     if model_args.use_unsloth:
+        logger.info("*** use unsloth ***")
         from alignment.unsloth import get_unsloth_peft_model
 
         peft_config = get_peft_config(model_args)
-        model = AutoModelForCausalLM.from_pretrained(
-            model_args.model_name_or_path, **model_kwargs
+        model, tokenizer = get_unsloth_peft_model(
+            model_args.model_name_or_path,
+            training_args.max_seq_length,
+            peft_config.to_dict(),
         )
-        model, tokenizer = setup_chat_format(model, tokenizer)
-        model = get_unsloth_peft_model(model, training_args.max_seq_length, peft_config)
+
+        if (
+            "<|im_start|>" in tokenizer.chat_template
+            and "gemma-tokenizer-chatml" not in tokenizer.name_or_path
+        ):
+            model, tokenizer = setup_chat_format(model, tokenizer)
 
         trainer = SFTTrainer(
             model=model,
@@ -208,6 +218,7 @@ def main():
             train_dataset=train_dataset,
             eval_dataset=eval_dataset,
             dataset_text_field="text",
+            dataset_num_proc=data_args.preprocessing_num_workers,
             max_seq_length=training_args.max_seq_length,
             tokenizer=tokenizer,
             packing=True,
@@ -222,6 +233,7 @@ def main():
             train_dataset=train_dataset,
             eval_dataset=eval_dataset,
             dataset_text_field="text",
+            dataset_num_proc=data_args.preprocessing_num_workers,
             max_seq_length=training_args.max_seq_length,
             tokenizer=tokenizer,
             packing=True,

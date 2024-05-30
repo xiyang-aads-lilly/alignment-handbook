@@ -5,8 +5,9 @@ torch_dtype: bfloat16
 use_flash_attention_2: true
 
 # LoRA arguments
-load_in_4bit: true
+use_unsloth: false # unsloth not support deepspeed yet
 use_peft: true
+load_in_4bit: true
 lora_r: 32
 lora_alpha: 32
 lora_dropout: 0.05
@@ -26,14 +27,13 @@ dataset_mixer:
 dataset_splits:
 - train_sft
 - test_sft
-preprocessing_num_workers: 16
+preprocessing_num_workers: 32
 auto_insert_empty_system_msg: true
 
 # SFT trainer config
 bf16: true
 do_eval: true
 evaluation_strategy: epoch
-gradient_accumulation_steps: 16
 gradient_checkpointing: true
 gradient_checkpointing_kwargs:
   use_reentrant: false
@@ -41,18 +41,22 @@ learning_rate: 1.0e-04
 log_level: info
 logging_steps: 5  
 logging_strategy: steps
+optim: adamw_torch # adamw_torch paged_adamw_32bit galore_adamw lion_32bit
+# optim_target_modules: all-linear
+weight_decay: 0.01
 lr_scheduler_type: cosine
-max_seq_length: 4096
+max_seq_length: 2048
 max_steps: -1
 num_train_epochs: 1
 output_dir: /home/l069561/project/models/fine-tuned/demo-llama-3-8b-lora-ultrachat
 overwrite_output_dir: true
-per_device_eval_batch_size: 8
+per_device_eval_batch_size: 2
+gradient_accumulation_steps: 32
 per_device_train_batch_size: 4
 push_to_hub: false
 report_to:
 - tensorboard  
-# - wandb
+- wandb
 save_strategy: "steps"
 save_steps: 100
 save_total_limit: 1

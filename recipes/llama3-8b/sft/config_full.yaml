@@ -11,7 +11,7 @@ dataset_mixer:
 dataset_splits:
 - train_sft
 - test_sft
-preprocessing_num_workers: 8
+preprocessing_num_workers: 32
 
 # SFT trainer config
 bf16: true
@@ -27,6 +27,7 @@ logging_steps: 5
 logging_strategy: steps
 learning_rate: 2.0e-05
 optim: galore_adamw # adamw_torch paged_adamw_32bit galore_adamw lion_32bit
+optim_target_modules: all-linear
 weight_decay: 0.01
 lr_scheduler_type: cosine
 max_seq_length: 4096

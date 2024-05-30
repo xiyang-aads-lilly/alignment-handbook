@@ -1,7 +1,6 @@
 ## deepspeed optimizers
 - DeepSpeed natively supports Adam, AdamW, OneBitAdam, Lamb, OneBitLamb, FusedLamb, FusedAdam
 - see for details on how to config https://deepspeed.readthedocs.io/en/latest/optimizers.html
-- 
 ```json
 {
   "optimizer": {
@@ -20,7 +19,7 @@
       "factor_min": 0.5,
       "factor_threshold": 0.1
     }
-  },
+  }
 }
 
 {
@@ -33,6 +32,25 @@
       "max_coeff": 0.3,
       "min_coeff": 0.01
     }
-  },
+  }
+}
+```
+
+- fp16 vs bf16
+```json
+{
+    "fp16": {
+        "enabled": false,
+        "loss_scale": 0,
+        "auto_cast": false,
+        "loss_scale_window": 1000,
+        "initial_scale_power": 16,
+        "hysteresis": 2,
+        "consecutive_hysteresis": false,
+        "min_loss_scale": 1
+    },
+    "bf16": {
+        "enabled": true
+    }
 }
 ```

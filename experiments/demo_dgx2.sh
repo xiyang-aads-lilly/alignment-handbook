@@ -7,8 +7,13 @@ echo activate virtual ENV
 PYTHON_ENV=${ROOT}/project/scripts/v2306.sh
 source $PYTHON_ENV
 
+
+# CUDA
+export CUDA_VISIBLE_DEVICES=0,1
+export CUDA_LAUNCH_BLOCKING="1"
+
 # number of GPUs; here we use all GPUs for demo
-WORLD_SIZE=3
+WORLD_SIZE=2
 
 # HF cache
 export TMPDIR="${ROOT}/project/.cache/"
@@ -32,9 +37,17 @@ export ACCELERATE_LOG_LEVEL=debug
 export ACCELERATE_DEBUG_MODE="1"
 export DEEPSPEED_TIMEOUT=120
 
+# accelerate launch
 accelerate launch \
     --config_file ${ROOT}/project/alignment_handbook/recipes/accelerate_configs/deepspeed_zero2.yaml \
     --num_processes $WORLD_SIZE \
     --tee 3 \
    ${ROOT}/project/alignment_handbook/scripts/run_sft.py \
    ${ROOT}/project/alignment_handbook/recipes/llama3-8b/sft/config_qlora.yaml 
+#    ${ROOT}/project/alignment_handbook/recipes/llama3-8b/sft/config_full.yaml 
+
+
+# deepspeed launch
+
+
+# torch launch
