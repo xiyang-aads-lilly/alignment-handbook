@@ -1,3 +1,6 @@
+## Accelerate launch only support partial parameters in deepspeed
+- to avoid, we need to launch with deepspeed not accelerate
+
 ## deepspeed optimizers
 - DeepSpeed natively supports Adam, AdamW, OneBitAdam, Lamb, OneBitLamb, FusedLamb, FusedAdam
 - see for details on how to config https://deepspeed.readthedocs.io/en/latest/optimizers.html
