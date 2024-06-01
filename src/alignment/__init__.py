@@ -17,6 +17,7 @@ from .model_utils import (
     is_adapter_model,
     tokenizer_and_embedding_resize,
 )
+from .simpo_trainer import SimPOTrainer
 from .utils import (
     GpuUtilPrintCallBack,
     ProfCallback,

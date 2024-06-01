@@ -9,9 +9,11 @@
         "consecutive_hysteresis": false,
         "min_loss_scale": 1
     },
+
     "bf16": {
         "enabled": true
     },
+
     "optimizer": {
         "type": "AdamW",
         "params": {
@@ -23,6 +25,7 @@
             "adam_w_mode": true
         }
     },
+
     "scheduler": {
         "type": "WarmupDecayLR",
         "params": {
@@ -32,18 +35,21 @@
             "total_num_steps": "auto"
         }
     },
+
     "zero_optimization": {
         "stage": 2,
         "allgather_partitions": true,
-        "allgather_bucket_size": 2e8,
+        "allgather_bucket_size": 5e8,
         "overlap_comm": true,
         "reduce_scatter": true,
         "reduce_bucket_size": "auto",
-        "contiguous_gradients": true
+        "contiguous_gradients": true,
+        "round_robin_gradients": true
     },
+
     "gradient_accumulation_steps": "auto",
     "gradient_clipping": "auto",
-    "steps_per_print": 2000,
+    "steps_per_print": 20000000,
     "train_batch_size": "auto",
     "train_micro_batch_size_per_gpu": "auto",
     "wall_clock_breakdown": false

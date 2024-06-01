@@ -170,3 +170,4 @@ experiments/*
 !experiments/.gitkeep
 !experiments/demo*
 !experiments/README.md
+!experiments/util.sh
