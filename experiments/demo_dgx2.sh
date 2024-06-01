@@ -22,9 +22,6 @@ export HF_DATASETS_CACHE="${ROOT}/project/.cache/dataset"
 export HF_HOME="${ROOT}/project/.cache/"
 
 # Wandb
-export WANDB_API_KEY="05411100e08ac02e3fcbdc821b4116cf1c066e99"
-export WANDB_USERNAME="xi-yang5"
-export WANDB_PROJECT="demo_dgx2"
 # export WANDB_API_KEY=""
 # export WANDB_USERNAME=""
 # export WANDB_PROJECT=""
