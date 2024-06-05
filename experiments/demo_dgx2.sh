@@ -7,7 +7,9 @@ echo activate virtual ENV
 PYTHON_ENV=${ROOT}/project/scripts/v2306.sh
 source $PYTHON_ENV
 
-# pip freeze
+# get this script location
+SCRIPT=$(readlink -f "$0")
+SCRIPTPATH=$(dirname "$SCRIPT")
 
 # CUDA
 export CUDA_VISIBLE_DEVICES=0,1
@@ -22,11 +24,7 @@ export HF_DATASETS_CACHE="${ROOT}/project/.cache/dataset"
 export HF_HOME="${ROOT}/project/.cache/"
 
 # Wandb
-# export WANDB_API_KEY=""
-# export WANDB_USERNAME=""
-# export WANDB_PROJECT=""
-export WANDB_LOG_MODEL="false"
-export WANDB_WATCH="false"
+source ${SCRIPTPATH}/wandb.sh
 
 # TORCH and NCCL
 export TORCH_DISTRIBUTED_DEBUG=INFO
@@ -36,10 +34,6 @@ export NCCL_DEBUG=INFO
 export ACCELERATE_LOG_LEVEL=debug
 export ACCELERATE_DEBUG_MODE="1"
 export DEEPSPEED_TIMEOUT=120
-
-# get this script location
-SCRIPT=$(readlink -f "$0")
-SCRIPTPATH=$(dirname "$SCRIPT")
 
 # accelerate launch
 # accelerate launch \
