@@ -27,7 +27,7 @@ dataset_mixer:
 dataset_splits:
 - train_sft
 - test_sft
-preprocessing_num_workers: 32
+preprocessing_num_workers: 16
 auto_insert_empty_system_msg: true
 
 # SFT trainer config
@@ -48,7 +48,7 @@ lr_scheduler_type: cosine
 max_seq_length: 4096
 max_steps: -1
 num_train_epochs: 1
-output_dir: /home/l069561/project/alignment_handbook/experiments/models/demo-llama-3-8b-lora-ultrachat
+output_dir: /home/l069561/project/alignment-handbook/experiments/models/demo-llama-3-8b-qlora-ultrachat
 overwrite_output_dir: true
 per_device_train_batch_size: 4
 gradient_accumulation_steps: 4

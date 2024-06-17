@@ -3,23 +3,27 @@ datasets>=2.14.6
 deepspeed>=0.12.2
 einops>=0.6.1
 evaluate==0.4.0
+flash-attn>=2.1.0
 huggingface-hub>=0.14.1<1.0
+jinja2>=3.0.0
 ninja>=1.11.1
 packaging>=23.0
 parameterized>=0.9.0
 peft>=0.6.1
-protobuf<=3.20.2
+protobuf<=3.20.3
+pynvml>=11.4.0
 safetensors>=0.3.3
+
+sentencepiece
 tensorboard
+tqdm>=4.64.1
 transformers>=4.35.0
 trl>=0.7.4
-jinja2>=3.0.0
-tqdm>=4.64.1
-flash-attn>=2.1.0
-pynvml>=11.4.0
+wandb
+
 
 # optional
-galore-torch
+# galore-torch
 
 # unsloth
 # with NV pytorch container install -> pip install git+https://github.com/unslothai/unsloth.git --no-deps
