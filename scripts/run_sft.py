@@ -22,15 +22,12 @@ import random
 import sys
 from pathlib import Path
 
-
 p = Path(__file__).parent.parent / "src"
 sys.path.append(p.as_posix())
 
 import datasets
 import torch
 import transformers
-from transformers import AutoModelForCausalLM, set_seed
-
 from alignment import (
     DataArguments,
     GpuUtilPrintCallBack,
@@ -46,8 +43,8 @@ from alignment import (
     get_quantization_config,
     get_tokenizer,
 )
+from transformers import AutoModelForCausalLM, set_seed
 from trl import SFTTrainer, setup_chat_format
-
 
 logger = logging.getLogger(__name__)
 
@@ -128,7 +125,7 @@ def main():
     model_kwargs = dict(
         revision=model_args.model_revision,
         trust_remote_code=model_args.trust_remote_code,
-        use_flash_attention_2=model_args.use_flash_attention_2,
+        attn_implementation=model_args.attn_implementation,
         torch_dtype=torch_dtype,
         use_cache=False if training_args.gradient_checkpointing else True,
         device_map=get_kbit_device_map() if quantization_config is not None else None,

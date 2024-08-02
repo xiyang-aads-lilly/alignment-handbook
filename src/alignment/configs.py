@@ -18,9 +18,8 @@ import sys
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, NewType, Optional, Union
 
-import transformers
+import trl
 from transformers import MODEL_FOR_CAUSAL_LM_MAPPING, HfArgumentParser
-
 
 MODEL_CONFIG_CLASSES = list(MODEL_FOR_CAUSAL_LM_MAPPING.keys())
 MODEL_TYPES = tuple(conf.model_type for conf in MODEL_CONFIG_CLASSES)
@@ -74,7 +73,7 @@ class H4ArgumentParser(HfArgumentParser):
                         inputs[arg] = [str(v) for v in val.split(",")]
 
                     # bool of a non-empty string is True, so we manually check for bools
-                    if base_type == bool:
+                    if base_type is bool:
                         if val in ["true", "True"]:
                             inputs[arg] = True
                         else:
@@ -161,14 +160,16 @@ class ModelArguments:
             )
         },
     )
+
     trust_remote_code: bool = field(
         default=False, metadata={"help": "Trust remote code when loading a model."}
     )
-    use_flash_attention_2: bool = field(
-        default=False,
+
+    attn_implementation: Optional[str] = field(
+        default=None,
         metadata={
             "help": (
-                "Whether to use flash attention 2. You must install this manually by running `pip install flash-attn --no-build-isolation`"
+                "Which attention implementation to use; you can use --attn_implementation=flash_attention_2, in which case you must install this manually by running `pip install flash-attn --no-build-isolation`"
             )
         },
     )
@@ -213,6 +214,7 @@ class ModelArguments:
         default="uint8",
         metadata={"help": "storage type to pack the quanitzed 4-bit prarams."},
     )
+    use_flash_attention_2: bool = field(default=False)
 
     def __post_init__(self):
         if self.load_in_8bit and self.load_in_4bit:
@@ -274,44 +276,12 @@ class DataArguments:
 
 
 @dataclass
-class SFTConfig(transformers.TrainingArguments):
+class SFTConfig(trl.SFTConfig):
     """
-    Arguments related to the training process itself. For all parameters, see: https://huggingface.co/docs/transformers/v4.26.1/en/main_classes/trainer#transformers.TrainingArguments
+    Arguments related to the training process itself. For all parameters, see: https://huggingface.co/docs/transformers/v4.39.3/en/main_classes/trainer#transformers.TrainingArguments
     Also used for the continued pretraining task.
     """
 
-    dataset_kwargs: Optional[Dict[str, Any]] = field(
-        default=None, metadata={"help": "Dataset kwargs for the SFTTrainer"}
-    )
-    max_seq_length: Optional[int] = field(
-        default=None,
-        metadata={
-            "help": (
-                "Used by TRL for reward model training, which tries to read this parameter in init."
-            )
-        },
-    )
-    logging_first_step: bool = field(
-        default=True,
-        metadata={
-            "help": ("Whether to log and evaluate the first global_step or not.")
-        },
-    )
-    optim: Optional[str] = field(default="adamw_torch")
-
-
-@dataclass
-class DPOConfig(transformers.TrainingArguments):
-    """
-    Arguments related to the DPO training process itself. For all parameters, see: https://huggingface.co/docs/transformers/v4.26.1/en/main_classes/trainer#transformers.TrainingArguments
-    """
-
-    beta: Optional[float] = field(
-        default=0.1,
-        metadata={
-            "help": "The beta factor in DPO loss. Higher beta means less divergence from the initial policy."
-        },
-    )
     hub_model_revision: Optional[str] = field(
         default="main",
         metadata={"help": ("The Hub model branch to push the model to.")},
@@ -322,97 +292,23 @@ class DPOConfig(transformers.TrainingArguments):
             "help": ("Whether to log and evaluate the first global_step or not.")
         },
     )
-    max_prompt_length: Optional[int] = field(
-        default=None,
-        metadata={
-            "help": (
-                "For DPO, the maximum length of the prompt to use for conditioning the model."
-            )
-        },
+
+
+@dataclass
+class DPOConfig(trl.DPOConfig):
+    """
+    Arguments related to the DPO training process itself. For all parameters, see: https://huggingface.co/docs/transformers/v4.39.3/en/main_classes/trainer#transformers.TrainingArguments
+    """
+
+    hub_model_revision: Optional[str] = field(
+        default="main",
+        metadata={"help": ("The Hub model branch to push the model to.")},
     )
-    max_length: Optional[int] = field(
-        default=None,
+    logging_first_step: bool = field(
+        default=True,
         metadata={
-            "help": (
-                "Used by TRL for reward model training, which tries to read this parameter in init."
-            )
+            "help": ("Whether to log and evaluate the first global_step or not.")
         },
     )
     optim: Optional[str] = field(default="rmsprop")
     remove_unused_columns: bool = field(default=False)
-    loss_type: Optional[str] = field(
-        default="sigmoid", metadata={"help": ("The loss type for DPO.")}
-    )
-
-
-@dataclass
-class ORPOConfig(transformers.TrainingArguments):
-    max_length: Optional[int] = field(
-        default=None,
-        metadata={"help": "The maximum length of the sequences in the batch."},
-    )
-    max_prompt_length: Optional[int] = field(
-        default=None,
-        metadata={"help": "The maximum length of the prompt."},
-    )
-    max_completion_length: Optional[int] = field(
-        default=None,
-        metadata={"help": "The maximum length of the completions."},
-    )
-
-    beta: float = field(
-        default=0.1,
-        metadata={
-            "help": "The beta factor in ORPO loss (lambda/alpha in paper/code) that is the weight of the relative loss ratio in the SFT loss."
-        },
-    )
-    disable_dropout: bool = field(
-        default=True,
-        metadata={"help": "Whether or not to disable dropouts in `model`."},
-    )
-
-    label_pad_token_id: int = field(
-        default=-100,
-        metadata={"help": "The label pad token id."},
-    )
-    padding_value: Optional[int] = field(
-        default=None,
-        metadata={
-            "help": "The padding value if it is different to the tokenizer's pad_token_id."
-        },
-    )
-    truncation_mode: str = field(
-        default="keep_end",
-        metadata={
-            "help": "The truncation mode to use, either `keep_end` or `keep_start`."
-        },
-    )
-
-    generate_during_eval: bool = field(
-        default=False,
-        metadata={
-            "help": "Whether to sample and log generations during evaluation step."
-        },
-    )
-    is_encoder_decoder: Optional[bool] = field(
-        default=None,
-        metadata={
-            "help": (
-                "If no model is provided, we need to know if the model_init returns an encoder-decoder."
-            )
-        },
-    )
-
-    model_init_kwargs: Optional[Dict] = field(
-        default=None,
-        metadata={
-            "help": (
-                "Dict of Optional kwargs to pass when instantiating the model from a string"
-            )
-        },
-    )
-
-    dataset_num_proc: Optional[int] = field(
-        default=None,
-        metadata={"help": ("The number of workers to use to tokenize the data.")},
-    )
