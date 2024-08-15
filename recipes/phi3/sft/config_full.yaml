@@ -2,7 +2,7 @@
 model_name_or_path: /home/l069561/project/models/Meta-Llama-3-8B
 model_revision: main
 torch_dtype: bfloat16
-attn_implementation: flash_attention_2
+use_flash_attention_2: true
 
 # Data training arguments
 chat_template: "{% for message in messages %}\n{% if message['role'] == 'user' %}\n{{ '<|user|>\n' + message['content'] + eos_token }}\n{% elif message['role'] == 'system' %}\n{{ '<|system|>\n' + message['content'] + eos_token }}\n{% elif message['role'] == 'assistant' %}\n{{ '<|assistant|>\n'  + message['content'] + eos_token }}\n{% endif %}\n{% if loop.last and add_generation_prompt %}\n{{ '<|assistant|>' }}\n{% endif %}\n{% endfor %}"
@@ -11,15 +11,14 @@ dataset_mixer:
 dataset_splits:
 - train_sft
 - test_sft
-preprocessing_num_workers: 16
+preprocessing_num_workers: 32
 
 # SFT trainer config
 bf16: true
 do_eval: true
-# evaluation_strategy: epoch
-eval_strategy: epoch
+evaluation_strategy: epoch
 max_grad_norm: 1.0
-# gradient_accumulation_steps: 16
+gradient_accumulation_steps: 1
 gradient_checkpointing: true
 gradient_checkpointing_kwargs:
   use_reentrant: False
@@ -31,14 +30,13 @@ optim: galore_adamw # adamw_torch paged_adamw_32bit galore_adamw lion_32bit
 optim_target_modules: all-linear
 weight_decay: 0.01
 lr_scheduler_type: cosine
-max_seq_length: 8192
+max_seq_length: 4096
 max_steps: -1
-num_train_epochs: 3
-output_dir: /home/l069561/project/alignment-handbook/experiments/models/llama-3-full-ultrachat
+num_train_epochs: 1
+output_dir: /home/l069561/project/alignment_handbook/experiments/models/llama-3-full-ultrachat
 overwrite_output_dir: true
-per_device_eval_batch_size: 1
-per_device_train_batch_size: 1
-gradient_accumulation_steps: 64
+per_device_eval_batch_size: 8
+per_device_train_batch_size: 16
 push_to_hub: false
 remove_unused_columns: true
 report_to:

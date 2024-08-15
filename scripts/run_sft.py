@@ -22,12 +22,15 @@ import random
 import sys
 from pathlib import Path
 
+
 p = Path(__file__).parent.parent / "src"
 sys.path.append(p.as_posix())
 
 import datasets
 import torch
 import transformers
+from transformers import AutoModelForCausalLM, set_seed
+
 from alignment import (
     DataArguments,
     GpuUtilPrintCallBack,
@@ -43,8 +46,8 @@ from alignment import (
     get_quantization_config,
     get_tokenizer,
 )
-from transformers import AutoModelForCausalLM, set_seed
 from trl import SFTTrainer, setup_chat_format
+
 
 logger = logging.getLogger(__name__)
 
@@ -165,13 +168,13 @@ def main():
     train_dataset = raw_datasets["train"]
     eval_dataset = raw_datasets["test"]
 
-    with training_args.main_process_first(
-        desc="Log a few random samples from the processed training set"
-    ):
-        for index in random.sample(range(len(raw_datasets["train"])), 3):
-            logger.info(
-                f"Sample {index} of the processed training set:\n\n{raw_datasets['train'][index]['text']}"
-            )
+    # with training_args.main_process_first(
+    #     desc="Log a few random samples from the processed training set"
+    # ):
+    #     for index in random.sample(range(len(raw_datasets["train"])), 3):
+    #         logger.info(
+    #             f"Sample {index} of the processed training set:\n\n{raw_datasets['train'][index]['text']}"
+    #         )
 
     ##################
     # PYTORCH profiler
@@ -288,9 +291,9 @@ def main():
         trainer.log_metrics("eval", metrics)
         trainer.save_metrics("eval", metrics)
 
-    if training_args.push_to_hub is True:
-        logger.info("Pushing to hub...")
-        trainer.push_to_hub(**kwargs)
+    # if training_args.push_to_hub is True:
+    #     logger.info("Pushing to hub...")
+    #     trainer.push_to_hub(**kwargs)
 
     torch.cuda.memory._dump_snapshot(
         Path(training_args.output_dir) / "GPU_RAM_PROFILE.pickle"
