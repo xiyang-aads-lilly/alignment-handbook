@@ -14,9 +14,9 @@ source ${SCRIPTPATH}/wandb.sh
 echo $SLURM_TMPDIR
 export TMPDIR="/cache"
 
-export TRITON_CACHE_DIR=${HOME}/.cache/triton
-export HF_DATASETS_CACHE=${HOME}/.cache/dataset
-export HF_HOME=${HOME}/.cache/huggingface
+export TRITON_CACHE_DIR=${HOME}/project/cache/triton
+export HF_DATASETS_CACHE=${HOME}/project/cache/dataset
+export HF_HOME=${HOME}/project/cache/huggingface
 
 # TORCH and NCCL
 export CUDA_LAUNCH_BLOCKING=1

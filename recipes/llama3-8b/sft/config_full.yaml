@@ -32,13 +32,15 @@ optim_target_modules: all-linear
 weight_decay: 0.01
 lr_scheduler_type: cosine
 max_seq_length: 8192
+packing: false
+dataset_num_proc: 16
 max_steps: -1
 num_train_epochs: 3
 output_dir: /home/l069561/project/alignment-handbook/experiments/models/llama-3-full-ultrachat
 overwrite_output_dir: true
 per_device_eval_batch_size: 1
-per_device_train_batch_size: 1
-gradient_accumulation_steps: 64
+per_device_train_batch_size: 1 # this is per device, you need to manual calculate global batch by per device * gas * gpu * node
+gradient_accumulation_steps: 4
 push_to_hub: false
 remove_unused_columns: true
 report_to:

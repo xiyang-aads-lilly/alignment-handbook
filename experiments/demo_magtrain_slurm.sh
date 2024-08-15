@@ -24,8 +24,18 @@ source ${SCRIPTPATH}/util.sh
 
 CONTAINER=${HOME}/container/pt2402.sif
 
-srun --jobid $SLURM_JOB_ID apptainer exec -B $SLURM_TMPDIR:/cache  --nv $CONTAINER bash ${SCRIPTPATH}/demo_magtrain_llm_sft.sh
+# srun --jobid $SLURM_JOB_ID apptainer exec -B $SLURM_TMPDIR:/cache  --nv $CONTAINER bash ${SCRIPTPATH}/demo_magtrain_llm_sft.sh
 
 # use nsys to profile training process
-# srun --jobid $SLURM_JOB_ID apptainer exec -B $SLURM_TMPDIR:/cache --nv --fakeroot $CONTAINER nsys profile -t cuda,nvtx -o /cache/nsys_${SLURM_JOB_ID} bash ${SCRIPTPATH}/demo_magtrain_llm_sft.sh
-# cp $SLURM_TMPDIR/nsys_${SLURM_JOB_ID}.nsys-rep ${HOME}/project/log/nsys/
+srun --jobid $SLURM_JOB_ID \
+    apptainer exec -B $SLURM_TMPDIR:/cache --nv --fakeroot $CONTAINER \
+    nsys profile  -s none -t cuda,nvtx \
+    --gpu-metrics-device=all \
+    --gpu-metrics-frequency=100 \
+    --nic-metrics=true \
+    --capture-range=cudaProfilerApi \
+    --capture-range-end=stop \
+    -o /cache/nsys_${SLURM_JOB_ID} \
+    bash ${SCRIPTPATH}/demo_magtrain_llm_sft.sh
+
+cp $SLURM_TMPDIR/nsys_${SLURM_JOB_ID}.nsys-rep ${HOME}/project/log/nsys/

@@ -18,8 +18,10 @@ import sys
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, NewType, Optional, Union
 
-import trl
 from transformers import MODEL_FOR_CAUSAL_LM_MAPPING, HfArgumentParser
+
+import trl
+
 
 MODEL_CONFIG_CLASSES = list(MODEL_FOR_CAUSAL_LM_MAPPING.keys())
 MODEL_TYPES = tuple(conf.model_type for conf in MODEL_CONFIG_CLASSES)
@@ -214,7 +216,7 @@ class ModelArguments:
         default="uint8",
         metadata={"help": "storage type to pack the quanitzed 4-bit prarams."},
     )
-    use_flash_attention_2: bool = field(default=False)
+    # use_flash_attention_2: bool = field(default=False)
 
     def __post_init__(self):
         if self.load_in_8bit and self.load_in_4bit:
@@ -292,6 +294,10 @@ class SFTConfig(trl.SFTConfig):
             "help": ("Whether to log and evaluate the first global_step or not.")
         },
     )
+    # max_seq_length: Optional[int] = field(
+    #     default=None,
+    # )
+    # packing: Optional[bool] = field(default=False)
 
 
 @dataclass
