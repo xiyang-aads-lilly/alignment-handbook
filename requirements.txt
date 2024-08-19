@@ -16,6 +16,7 @@ pynvml>=11.4.0
 safetensors>=0.3.3
 sentencepiece>=0.1.99
 tensorboard
+tiktoken>=0.7.0
 tqdm>=4.64.1
 transformers>=4.39.3
 trl>=0.9.6

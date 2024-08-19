@@ -149,6 +149,8 @@ def main():
         model, tokenizer = setup_chat_format(model, tokenizer)
         model_kwargs = None
 
+    training_args.model_init_kwargs = model_kwargs
+
     #####################
     # Apply chat template
     #####################
@@ -218,7 +220,6 @@ def main():
             train_dataset=train_dataset,
             eval_dataset=eval_dataset,
             dataset_text_field="text",
-            dataset_num_proc=data_args.preprocessing_num_workers,
             tokenizer=tokenizer,
             dataset_kwargs=training_args.dataset_kwargs,
             callbacks=[GpuUtilPrintCallBack()],
@@ -226,12 +227,10 @@ def main():
     else:
         trainer = SFTTrainer(
             model=model,
-            model_init_kwargs=model_kwargs,
             args=training_args,
             train_dataset=train_dataset,
             eval_dataset=eval_dataset,
             dataset_text_field="text",
-            dataset_num_proc=data_args.preprocessing_num_workers,
             tokenizer=tokenizer,
             peft_config=get_peft_config(model_args),
             dataset_kwargs=training_args.dataset_kwargs,

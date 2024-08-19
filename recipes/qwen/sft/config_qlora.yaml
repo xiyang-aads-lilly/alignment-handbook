@@ -1,5 +1,5 @@
 # Model arguments
-model_name_or_path: /home/l069561/project/models/Phi-3-small-8k-instruct # no chat template
+model_name_or_path: /home/l069561/project/models/Qwen2-1.5B-Instruct # no chat template
 model_revision: main
 torch_dtype: bfloat16
 use_flash_attention_2: true
@@ -24,7 +24,6 @@ lora_target_modules: all
 # chat_template: "{% if messages[0]['role'] == 'system' %}{% set offset = 1 %}{% else %}{% set offset = 0 %}{% endif %}{{ bos_token }}{% for message in messages %}{% if (message['role'] == 'user') != (loop.index0 % 2 == offset) %}{{ raise_exception('Conversation roles must alternate user/assistant/user/assistant/...') }}{% endif %}{{ '<|im_start|>' + message['role'] + '\\n' + message['content'].strip() + '<|im_end|>\\n' }}{% if loop.last and message['role'] == 'user' and add_generation_prompt %}{{ '<|im_start|>assistant\\n' }}{% endif %}{% endfor %}"
 dataset_mixer:
   HuggingFaceH4/ultrachat_200k: 1.0
-  /home/l069561/project/alignment-handbook/experiments/extra_sample_training_data: 1.0 # test local dataset
 dataset_splits:
 - train_sft
 - test_sft
@@ -49,7 +48,7 @@ lr_scheduler_type: cosine
 max_seq_length: 4096
 max_steps: -1
 num_train_epochs: 1
-output_dir: /home/l069561/project/alignment-handbook/experiments/models/phi-3-small-8k-full-ultrachat-lora
+output_dir: /home/l069561/project/alignment-handbook/experiments/models/demo-qwen2-1.5b-inst-qlora-ultrachat
 overwrite_output_dir: true
 per_device_train_batch_size: 4
 gradient_accumulation_steps: 4

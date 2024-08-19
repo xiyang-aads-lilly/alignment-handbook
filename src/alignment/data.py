@@ -23,7 +23,7 @@ from .configs import DataArguments
 
 
 DEFAULT_PAD_TOKEN = "<pad>"
-DEFAULT_CHAT_SYSTEM_MESSAGE = """You are a helpful assistant. 
+DEFAULT_CHAT_SYSTEM_MESSAGE = """You are a helpful assistant.
 Thinking step by step and response to the user's message properly.
 """
 DEFAULT_CHAT_TEMPLATE = "{% for message in messages %}\n{% if message['role'] == 'user' %}\n{{ '<|user|>\n' + message['content'] + eos_token }}\n{% elif message['role'] == 'system' %}\n{{ '<|system|>\n' + message['content'] + eos_token }}\n{% elif message['role'] == 'assistant' %}\n{{ '<|assistant|>\n'  + message['content'] + eos_token }}\n{% endif %}\n{% if loop.last and add_generation_prompt %}\n{{ '<|assistant|>' }}\n{% endif %}\n{% endfor %}"
@@ -236,7 +236,7 @@ def mix_datasets(
             try:
                 # Try first if dataset on a Hub repo
                 dataset = load_dataset(ds, ds_config, split=split)
-            except DatasetGenerationError:
+            except:
                 # If not, check local dataset
                 dataset = load_from_disk(os.path.join(ds, split))
 
