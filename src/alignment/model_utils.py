@@ -94,13 +94,13 @@ def tokenizer_and_embedding_resize(
                 )
 
             tokenizer.add_special_tokens({k: v})
-            model.resize_token_embeddings(len(tokenizer))
+            model.resize_token_embeddings(len(tokenizer), pad_to_multiple_of=8)
             model.get_input_embeddings().weight.data[-1] = tk_emb
 
     # add non special extra tokens
     if non_special_tokens_to_add:
         num_new_tokens = tokenizer.add_tokens(non_special_tokens_to_add)
-        model.resize_token_embeddings(len(tokenizer))
+        model.resize_token_embeddings(len(tokenizer), pad_to_multiple_of=8)
         if num_new_tokens > 0:
             input_embeddings_data = model.get_input_embeddings().weight.data
             output_embeddings_data = model.get_output_embeddings().weight.data
@@ -150,6 +150,8 @@ def get_tokenizer(
         tokenizer.chat_template = data_args.chat_template
     elif auto_set_chat_template and tokenizer.get_chat_template() is None:
         tokenizer.chat_template = DEFAULT_CHAT_TEMPLATE
+
+    tokenizer.pad_to_multiple_of = 8
 
     return tokenizer
 

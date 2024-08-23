@@ -1,13 +1,8 @@
+from datetime import datetime
+
 from transformers import TrainerCallback
 
 from pynvml import *
-
-
-class GpuUtilPrintCallBack(TrainerCallback):
-    def on_log(self, args, state, control, logs=None, **kwargs):
-        if state.is_local_process_zero:
-            print(logs)
-            print_gpu_utilization()
 
 
 def print_gpu_utilization():
@@ -21,6 +16,15 @@ def print_summary(result):
     print(f"Time: {result.metrics['train_runtime']:.2f}")
     print(f"Samples/second: {result.metrics['train_samples_per_second']:.2f}")
     print_gpu_utilization()
+
+
+class GpuUtilPrintCallBack(TrainerCallback):
+    def on_log(self, args, state, control, logs=None, **kwargs):
+        if state.is_local_process_zero:
+            print(datetime.strftime(datetime.now(), "%Y-%m-%d %H:%M:%S"))
+            print(logs)
+            print_gpu_utilization()
+            # print_summary(args)
 
 
 class ProfCallback(TrainerCallback):

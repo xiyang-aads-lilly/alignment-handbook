@@ -1,5 +1,4 @@
 #!/usr/bin/bash
-
 whoami
 pwd
 ds_report
@@ -33,8 +32,14 @@ echo $PRIMARY
 echo $PRIMARY_PORT
 
 # TRAIN_CONF=${ROOT}/recipes/llama3-8b/sft/config_full.yaml
-TRAIN_CONF=${ROOT}/recipes/phi3/sft/config_full.yaml
+# TRAIN_CONF=${ROOT}/recipes/phi3/sft/config_full.yaml
 # TRAIN_CONF=${ROOT}/recipes/qwen/sft/config_full.yaml
+# TRAIN_CONF=${ROOT}/recipes/falcon_mamba/sft/config_full.yaml        # need futher debug, training stuck
+
+# manually set
+export WANDB_PROJECT="sang"
+# TRAIN_CONF=${ROOT}/recipes/sang_project/config_full_1.yaml
+TRAIN_CONF=${ROOT}/recipes/sang_project/config_full_2.yaml
 
 DEEPSPEED_CONF=${ROOT}/recipes/accelerate_configs/deepspeed_zs2.json
 

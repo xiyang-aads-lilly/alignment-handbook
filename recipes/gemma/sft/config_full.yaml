@@ -1,15 +1,15 @@
 # Model arguments
-model_name_or_path: /home/l069561/project/models/Meta-Llama-3.1-8B-Instruct
+model_name_or_path: /home/l069561/project/models/falcon-mamba-7b-instruct
 model_revision: main
 torch_dtype: bfloat16
-attn_implementation: flash_attention_2
+# attn_implementation: flash_attention_2
 
 # Data training arguments
 # chat_template: "{% for message in messages %}\n{% if message['role'] == 'user' %}\n{{ '<|user|>\n' + message['content'] + eos_token }}\n{% elif message['role'] == 'system' %}\n{{ '<|system|>\n' + message['content'] + eos_token }}\n{% elif message['role'] == 'assistant' %}\n{{ '<|assistant|>\n'  + message['content'] + eos_token }}\n{% endif %}\n{% if loop.last and add_generation_prompt %}\n{{ '<|assistant|>' }}\n{% endif %}\n{% endfor %}"
 dataset_mixer:
   HuggingFaceH4/ultrachat_200k: 1.0
   /home/l069561/project/alignment-handbook/experiments/extra_sample_training_data: 1.0 # test local dataset
-  # /home/l069561/project/data/sang_data_formatted: 1.0
+  /home/l069561/project/data/sang_data_formatted: 1.0
 dataset_splits:
 - train_sft
 - test_sft
@@ -19,7 +19,8 @@ preprocessing_num_workers: 16
 bf16: true
 do_eval: true
 # evaluation_strategy: epoch
-eval_strategy: epoch
+eval_strategy: steps
+eval_steps: 1000
 max_grad_norm: 1.0
 # gradient_accumulation_steps: 16
 gradient_checkpointing: true
@@ -29,7 +30,7 @@ log_level: info
 logging_steps: 5
 logging_strategy: steps
 learning_rate: 1.0e-05
-optim: galore_adamw # adamw_torch paged_adamw_32bit galore_adamw lion_32bit
+optim: adamw_torch #galore_adamw # adamw_torch paged_adamw_32bit galore_adamw lion_32bit
 optim_target_modules: all-linear
 weight_decay: 0.01
 lr_scheduler_type: cosine
@@ -37,8 +38,8 @@ max_seq_length: 8192
 packing: false
 dataset_num_proc: 16
 max_steps: -1
-num_train_epochs: 1
-output_dir: /home/l069561/project/alignment-handbook/experiments/models/llama-3.1-inst-full-ultrachat
+num_train_epochs: 3
+output_dir: /home/l069561/project/alignment-handbook/experiments/models/models-falcon-mamba-7b-inst-full-ultrachat
 overwrite_output_dir: true
 per_device_eval_batch_size: 1
 per_device_train_batch_size: 1 # this is per device, you need to manual calculate global batch by per device * gas * gpu * node
@@ -48,8 +49,8 @@ remove_unused_columns: true
 report_to:
 - tensorboard
 - wandb
-save_strategy: "steps"
+save_strategy: "epoch"
 save_steps: 100
-save_total_limit: 1
+save_total_limit: 3
 seed: 42
 warmup_ratio: 0.1
