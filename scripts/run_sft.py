@@ -36,7 +36,8 @@ from alignment import (
     GpuUtilPrintCallBack,
     H4ArgumentParser,
     ModelArguments,
-    ProfCallback,
+    PLW_apply_chat_template,
+    PLWTrainer,
     SFTConfig,
     apply_chat_template,
     get_checkpoint,
@@ -107,7 +108,9 @@ def main():
     ################
     # Load tokenizer
     ################
-    tokenizer = get_tokenizer(model_args, data_args, training_args)
+    tokenizer = get_tokenizer(
+        model_args, data_args, training_args, auto_set_chat_template=True
+    )
 
     #######################
     # Load pretrained model
@@ -150,22 +153,35 @@ def main():
     # Apply chat template
     #####################
     logger.info("*** apply chat template ***")
-    raw_datasets = raw_datasets.map(
-        apply_chat_template,
-        fn_kwargs={
-            "tokenizer": tokenizer,
-            "task": "sft",
-            "auto_insert_empty_system_msg": data_args.auto_insert_empty_system_msg,
-        },
-        num_proc=data_args.preprocessing_num_workers,
-        remove_columns=column_names,
-        desc="Applying chat template",
-    )
+
+    if training_args.use_plw:
+        raw_datasets = raw_datasets.map(
+            PLW_apply_chat_template,
+            fn_kwargs={
+                "tokenizer": tokenizer,
+                "use_sample_template": training_args.use_plw_sample_template,
+            },
+            num_proc=data_args.preprocessing_num_workers,
+            remove_columns=column_names,
+            desc="Applying chat template",
+        )
+    else:
+        raw_datasets = raw_datasets.map(
+            apply_chat_template,
+            fn_kwargs={
+                "tokenizer": tokenizer,
+                "task": "sft",
+                "auto_insert_empty_system_msg": data_args.auto_insert_empty_system_msg,
+            },
+            num_proc=data_args.preprocessing_num_workers,
+            remove_columns=column_names,
+            desc="Applying chat template",
+        )
 
     train_dataset = raw_datasets["train"]
     eval_dataset = raw_datasets["test"]
 
-    # this is hard coded
+    # this is hard coded - move to config.yaml
     training_args.dataset_text_field = "text"
 
     # # no need for logging samples
@@ -213,26 +229,50 @@ def main():
         ):
             model, tokenizer = setup_chat_format(model, tokenizer)
 
-        trainer = SFTTrainer(
-            model=model,
-            args=training_args,
-            train_dataset=train_dataset,
-            eval_dataset=eval_dataset,
-            tokenizer=tokenizer,
-            dataset_kwargs=training_args.dataset_kwargs,
-            callbacks=[GpuUtilPrintCallBack()],
-        )
+        if training_args.use_plw:
+            trainer = PLWTrainer(
+                prompt_loss_weight=training_args.prompt_loss_weight,
+                model=model,
+                args=training_args,
+                train_dataset=train_dataset,
+                eval_dataset=eval_dataset,
+                tokenizer=tokenizer,
+                dataset_kwargs=training_args.dataset_kwargs,
+                # callbacks=[GpuUtilPrintCallBack()],
+            )
+        else:
+            trainer = SFTTrainer(
+                model=model,
+                args=training_args,
+                train_dataset=train_dataset,
+                eval_dataset=eval_dataset,
+                tokenizer=tokenizer,
+                dataset_kwargs=training_args.dataset_kwargs,
+                # callbacks=[GpuUtilPrintCallBack()],
+            )
     else:
-        trainer = SFTTrainer(
-            model=model,
-            args=training_args,
-            train_dataset=train_dataset,
-            eval_dataset=eval_dataset,
-            tokenizer=tokenizer,
-            peft_config=get_peft_config(model_args),
-            dataset_kwargs=training_args.dataset_kwargs,
-            callbacks=[GpuUtilPrintCallBack()],
-        )
+        if training_args.use_plw:
+            trainer = PLWTrainer(
+                prompt_loss_weight=training_args.prompt_loss_weight,
+                model=model,
+                args=training_args,
+                train_dataset=train_dataset,
+                eval_dataset=eval_dataset,
+                tokenizer=tokenizer,
+                dataset_kwargs=training_args.dataset_kwargs,
+                # callbacks=[GpuUtilPrintCallBack()],
+            )
+        else:
+            trainer = SFTTrainer(
+                model=model,
+                args=training_args,
+                train_dataset=train_dataset,
+                eval_dataset=eval_dataset,
+                tokenizer=tokenizer,
+                peft_config=get_peft_config(model_args),
+                dataset_kwargs=training_args.dataset_kwargs,
+                # callbacks=[GpuUtilPrintCallBack()],
+            )
 
     ###############
     # Training loop
@@ -290,13 +330,11 @@ def main():
     #     logger.info("Pushing to hub...")
     #     trainer.push_to_hub(**kwargs)
 
-    torch.cuda.memory._dump_snapshot(
-        Path(training_args.output_dir) / "GPU_RAM_PROFILE.pickle"
-    )
+    # torch.cuda.memory._dump_snapshot(Path(training_args.output_dir) / "GPU_RAM_PROFILE.pickle")
     # prof.close()
     logger.info("*** Training complete ***")
 
 
 if __name__ == "__main__":
-    torch.cuda.memory._record_memory_history()
+    # torch.cuda.memory._record_memory_history()
     main()

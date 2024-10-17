@@ -3,7 +3,7 @@
 #SBATCH --job-name=llm_sft
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=xi.yang5@lilly.com
-#SBATCH --nodes=4
+#SBATCH --nodes=2
 #SBATCH --ntasks-per-node=1
 #SBATCH --gpus-per-node=4
 #SBATCH --gpus-per-task=4

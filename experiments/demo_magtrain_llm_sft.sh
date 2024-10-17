@@ -38,8 +38,8 @@ echo $PRIMARY_PORT
 
 # manually set
 export WANDB_PROJECT="sang"
-# TRAIN_CONF=${ROOT}/recipes/sang_project/config_full_1.yaml
-TRAIN_CONF=${ROOT}/recipes/sang_project/config_full_2.yaml
+TRAIN_CONF=${ROOT}/recipes/sang_project/config_full_1.yaml
+# TRAIN_CONF=${ROOT}/recipes/sang_project/config_full_2.yaml
 
 DEEPSPEED_CONF=${ROOT}/recipes/accelerate_configs/deepspeed_zs2.json
 

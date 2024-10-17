@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import os
-from pathlib import Path
 
 import torch
 from transformers import (
@@ -27,12 +26,13 @@ from transformers.trainer_utils import get_last_checkpoint
 
 from accelerate import Accelerator
 from huggingface_hub import list_repo_files
-from huggingface_hub.utils._errors import RepositoryNotFoundError
+
+# from huggingface_hub.utils._errors import RepositoryNotFoundError
 from huggingface_hub.utils._validators import HFValidationError
 from peft import LoraConfig, PeftConfig
 
 from .configs import DataArguments, ModelArguments
-from .data import DEFAULT_CHAT_TEMPLATE, DEFAULT_PAD_TOKEN
+from .data import DEFAULT_CHAT_TEMPLATE
 
 
 def get_current_device() -> int:
@@ -116,6 +116,21 @@ def tokenizer_and_embedding_resize(
             output_embeddings_data[-num_new_tokens:] = output_embeddings_avg
 
 
+def add_new_special_token(new_special_token, tokenizer, model):
+    for k, v in new_special_token.items():
+        # get exsiting special token
+        stk = tokenizer.special_tokens_map.get(k, None)
+        if stk:
+            idx = tokenizer.convert_tokens_to_ids(stk)
+            tk_emb = model.get_input_embeddings().weight.data[idx]
+        else:
+            tk_emb = model.get_input_embeddings().weight.data.mean(dim=0, keepdim=False)
+
+        tokenizer.add_special_tokens({k: v})
+        model.resize_token_embeddings(len(tokenizer), pad_to_multiple_of=8)
+        model.get_input_embeddings().weight.data[-1] = tk_emb
+
+
 def get_tokenizer(
     model_args: ModelArguments,
     data_args: DataArguments,
@@ -132,8 +147,23 @@ def get_tokenizer(
         revision=model_args.model_revision,
         trust_remote_code=model_args.trust_remote_code,
     )
+
     if tokenizer.pad_token_id is None:
-        tokenizer.pad_token_id = tokenizer.eos_token_id
+        if "llama" in tokenizer.name_or_path.lower():
+            llama_version = tokenizer.name_or_path.split("/")[-1].split("-")[-2]
+            if llama_version == "3.2":
+                pad_token = "<|finetune_right_pad_id|>"
+            elif llama_version == "3":
+                pad_token = "<|reserved_special_token_0|>"
+            else:
+                raise RuntimeError(
+                    f"check {tokenizer.name_or_path} to make sure we have a version like Meta-Llama-3-8B or Meta-Llama-3.2-3B"
+                )
+            tokenizer.pad_token = pad_token
+            tokenizer.pad_token_id = tokenizer.convert_tokens_to_ids(pad_token)
+        else:
+            tokenizer.pad_token = tokenizer.eos_token
+            tokenizer.pad_token_id = tokenizer.eos_token_id
 
     if data_args.truncation_side is not None:
         tokenizer.truncation_side = data_args.truncation_side
@@ -143,15 +173,18 @@ def get_tokenizer(
     if train_args:
         tokenizer.model_max_length = train_args.max_seq_length
 
-    if tokenizer.model_max_length > 100_000:
-        tokenizer.model_max_length = 2048
+    if tokenizer.model_max_length > 128000:
+        tokenizer.model_max_length = 4096
 
     if data_args.chat_template is not None:
         tokenizer.chat_template = data_args.chat_template
-    elif auto_set_chat_template and tokenizer.get_chat_template() is None:
+    elif auto_set_chat_template and tokenizer.chat_template is None:
         tokenizer.chat_template = DEFAULT_CHAT_TEMPLATE
 
     tokenizer.pad_to_multiple_of = 8
+
+    # training is ok for right / left but for batch inference, we need to set padding side as left
+    # tokenizer.padding_side = "left"
 
     return tokenizer
 
@@ -196,9 +229,11 @@ def is_adapter_model(model_name_or_path: str, revision: str = "main") -> bool:
     try:
         # Try first if model on a Hub repo
         repo_files = list_repo_files(model_name_or_path, revision=revision)
-    except (HFValidationError, RepositoryNotFoundError):
-        # If not, check local repo
+    except:
         repo_files = os.listdir(model_name_or_path)
+    # except (HFValidationError, RepositoryNotFoundError):
+    #     # If not, check local repo
+    #     repo_files = os.listdir(model_name_or_path)
     return (
         "adapter_model.safetensors" in repo_files or "adapter_model.bin" in repo_files
     )

@@ -294,10 +294,9 @@ class SFTConfig(trl.SFTConfig):
             "help": ("Whether to log and evaluate the first global_step or not.")
         },
     )
-    # max_seq_length: Optional[int] = field(
-    #     default=None,
-    # )
-    # packing: Optional[bool] = field(default=False)
+    prompt_loss_weight: float = field(default=0.1)
+    use_plw: bool = field(default=False)
+    use_plw_sample_template: bool = field(default=False)
 
 
 @dataclass
