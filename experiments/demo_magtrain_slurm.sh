@@ -31,6 +31,10 @@ export TRITON_DUMP_DIR=${HOME}/project/cache/triton/dump
 export HF_DATASETS_CACHE=${HOME}/project/cache/dataset
 export HF_HOME=${HOME}/project/cache/huggingface
 
+# below is to foce multi gpu training using ethernet instead of IB
+# export NCCL_DEBUG=WARN
+# export NCCL_SOCKET_IFNAME=bond1
+
 srun --jobid $SLURM_JOB_ID apptainer exec -B $SLURM_TMPDIR:/cache  --nv $CONTAINER bash ${SCRIPTPATH}/demo_magtrain_llm_sft.sh
 
 # use nsys to profile training process

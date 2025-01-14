@@ -230,6 +230,7 @@ def main():
             model, tokenizer = setup_chat_format(model, tokenizer)
 
         if training_args.use_plw:
+            model.config.is_plw = True
             trainer = PLWTrainer(
                 prompt_loss_weight=training_args.prompt_loss_weight,
                 model=model,
@@ -241,6 +242,7 @@ def main():
                 # callbacks=[GpuUtilPrintCallBack()],
             )
         else:
+            model.config.is_plw = False
             trainer = SFTTrainer(
                 model=model,
                 args=training_args,
@@ -252,6 +254,7 @@ def main():
             )
     else:
         if training_args.use_plw:
+            model.config.is_plw = True
             trainer = PLWTrainer(
                 prompt_loss_weight=training_args.prompt_loss_weight,
                 model=model,
@@ -263,6 +266,7 @@ def main():
                 # callbacks=[GpuUtilPrintCallBack()],
             )
         else:
+            model.config.is_plw = False
             trainer = SFTTrainer(
                 model=model,
                 args=training_args,
@@ -325,10 +329,6 @@ def main():
         metrics["eval_samples"] = len(eval_dataset)
         trainer.log_metrics("eval", metrics)
         trainer.save_metrics("eval", metrics)
-
-    # if training_args.push_to_hub is True:
-    #     logger.info("Pushing to hub...")
-    #     trainer.push_to_hub(**kwargs)
 
     # torch.cuda.memory._dump_snapshot(Path(training_args.output_dir) / "GPU_RAM_PROFILE.pickle")
     # prof.close()

@@ -39,11 +39,12 @@ class PLWTrainer(SFTTrainer):
     def compute_loss(self, model, inputs, return_outputs=False):
         # get outputs without computing loss (by not passing in labels)
         outputs = model(
-            input_ids=inputs["input_ids"], attention_mask=inputs["attention_mask"]
+            input_ids=inputs["input_ids"],
+            attention_mask=inputs["attention_mask"],
+            return_dict=True,
         )
         logits = outputs.get("logits")
         labels = inputs.pop("labels")
-
         weights = self.plw * inputs["prompt_mask"] + inputs["completion_mask"]
 
         shift_logits = logits[..., :-1, :].contiguous()
@@ -61,6 +62,7 @@ class PLWTrainer(SFTTrainer):
 
         # Compute weighted average of losses
         loss = token_losses @ shift_weights.view(-1) / shift_weights.sum()
+
         return (loss, outputs) if return_outputs else loss
 
     def _prepare_dataset(
