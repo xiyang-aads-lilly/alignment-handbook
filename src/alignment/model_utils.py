@@ -147,8 +147,9 @@ def get_tokenizer(
 
     if tokenizer.pad_token_id is None:
         if "llama" in tokenizer.name_or_path.lower():
-            llama_version = tokenizer.name_or_path.split("/")[-1].split("-")[-2]
-            if llama_version == "3.2":
+            idx = -3 if "instruct" in tokenizer.name_or_path.lower() else -2
+            llama_version = tokenizer.name_or_path.split("/")[-1].split("-")[idx]
+            if llama_version == "3.2" or llama_version == "3.1":
                 pad_token = "<|finetune_right_pad_id|>"
             elif llama_version == "3":
                 pad_token = "<|reserved_special_token_0|>"
@@ -171,7 +172,7 @@ def get_tokenizer(
         tokenizer.model_max_length = train_args.max_seq_length
 
     if tokenizer.model_max_length > 128000:
-        tokenizer.model_max_length = 4096
+        tokenizer.model_max_length = 8192
 
     if data_args.chat_template is not None:
         tokenizer.chat_template = data_args.chat_template

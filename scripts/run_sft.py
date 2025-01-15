@@ -26,6 +26,8 @@ from pathlib import Path
 p = Path(__file__).parent.parent / "src"
 sys.path.append(p.as_posix())
 
+from importlib.metadata import version as get_pkg_version
+
 import datasets
 import torch
 import transformers
@@ -212,6 +214,51 @@ def main():
     # Initialize the Trainer
     ########################
 
+    if get_pkg_version("trl") >= "0.13.0":
+        trainer_kwargs = (
+            dict(
+                prompt_loss_weight=training_args.prompt_loss_weight,
+                model=model,
+                args=training_args,
+                train_dataset=train_dataset,
+                eval_dataset=eval_dataset,
+                tokenizer=tokenizer,
+                # callbacks=[GpuUtilPrintCallBack()],
+            )
+            if training_args.use_plw
+            else dict(
+                model=model,
+                args=training_args,
+                train_dataset=train_dataset,
+                eval_dataset=eval_dataset,
+                tokenizer=tokenizer,
+                # callbacks=[GpuUtilPrintCallBack()],
+            )
+        )
+    else:
+        trainer_kwargs = (
+            dict(
+                prompt_loss_weight=training_args.prompt_loss_weight,
+                model=model,
+                args=training_args,
+                train_dataset=train_dataset,
+                eval_dataset=eval_dataset,
+                tokenizer=tokenizer,
+                dataset_kwargs=training_args.dataset_kwargs,
+                # callbacks=[GpuUtilPrintCallBack()],
+            )
+            if training_args.use_plw
+            else dict(
+                model=model,
+                args=training_args,
+                train_dataset=train_dataset,
+                eval_dataset=eval_dataset,
+                tokenizer=tokenizer,
+                dataset_kwargs=training_args.dataset_kwargs,
+                # callbacks=[GpuUtilPrintCallBack()],
+            )
+        )
+
     if model_args.use_unsloth:
         logger.info("*** use unsloth ***")
         from alignment.unsloth import get_unsloth_peft_model
@@ -230,53 +277,14 @@ def main():
             model, tokenizer = setup_chat_format(model, tokenizer)
 
         if training_args.use_plw:
-            model.config.is_plw = True
-            trainer = PLWTrainer(
-                prompt_loss_weight=training_args.prompt_loss_weight,
-                model=model,
-                args=training_args,
-                train_dataset=train_dataset,
-                eval_dataset=eval_dataset,
-                tokenizer=tokenizer,
-                dataset_kwargs=training_args.dataset_kwargs,
-                # callbacks=[GpuUtilPrintCallBack()],
-            )
+            trainer = PLWTrainer(**trainer_kwargs)
         else:
-            model.config.is_plw = False
-            trainer = SFTTrainer(
-                model=model,
-                args=training_args,
-                train_dataset=train_dataset,
-                eval_dataset=eval_dataset,
-                tokenizer=tokenizer,
-                dataset_kwargs=training_args.dataset_kwargs,
-                # callbacks=[GpuUtilPrintCallBack()],
-            )
+            trainer = SFTTrainer(**trainer_kwargs)
     else:
         if training_args.use_plw:
-            model.config.is_plw = True
-            trainer = PLWTrainer(
-                prompt_loss_weight=training_args.prompt_loss_weight,
-                model=model,
-                args=training_args,
-                train_dataset=train_dataset,
-                eval_dataset=eval_dataset,
-                tokenizer=tokenizer,
-                dataset_kwargs=training_args.dataset_kwargs,
-                # callbacks=[GpuUtilPrintCallBack()],
-            )
+            trainer = PLWTrainer(**trainer_kwargs)
         else:
-            model.config.is_plw = False
-            trainer = SFTTrainer(
-                model=model,
-                args=training_args,
-                train_dataset=train_dataset,
-                eval_dataset=eval_dataset,
-                tokenizer=tokenizer,
-                peft_config=get_peft_config(model_args),
-                dataset_kwargs=training_args.dataset_kwargs,
-                # callbacks=[GpuUtilPrintCallBack()],
-            )
+            trainer = SFTTrainer(**trainer_kwargs)
 
     ###############
     # Training loop

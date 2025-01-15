@@ -36,7 +36,7 @@ class PLWTrainer(SFTTrainer):
         self.plw = prompt_loss_weight
         # need to add prompt_mask and completion_mask to dataset generation
 
-    def compute_loss(self, model, inputs, return_outputs=False):
+    def compute_loss(self, model, inputs, return_outputs=False, **kwargs):
         # get outputs without computing loss (by not passing in labels)
         outputs = model(
             input_ids=inputs["input_ids"],
@@ -52,7 +52,7 @@ class PLWTrainer(SFTTrainer):
         shift_weights = weights[..., 1:].contiguous()
 
         shift_labels = shift_labels.to(shift_logits.device)
-        shift_weights = shift_weights.to(shift_logits.device)
+        shift_weights = shift_weights.to(shift_logits.device, shift_logits.dtype)
 
         # Compute per-token losses
         loss_fct = CrossEntropyLoss(reduction="none")
