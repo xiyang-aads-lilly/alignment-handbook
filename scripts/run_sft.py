@@ -213,51 +213,18 @@ def main():
     ########################
     # Initialize the Trainer
     ########################
+    trainer_kwargs = dict(
+        model=model,
+        args=training_args,
+        train_dataset=train_dataset,
+        eval_dataset=eval_dataset,
+        # callbacks=[GpuUtilPrintCallBack()],
+    )
 
-    if get_pkg_version("trl") >= "0.13.0":
-        trainer_kwargs = (
-            dict(
-                prompt_loss_weight=training_args.prompt_loss_weight,
-                model=model,
-                args=training_args,
-                train_dataset=train_dataset,
-                eval_dataset=eval_dataset,
-                tokenizer=tokenizer,
-                # callbacks=[GpuUtilPrintCallBack()],
-            )
-            if training_args.use_plw
-            else dict(
-                model=model,
-                args=training_args,
-                train_dataset=train_dataset,
-                eval_dataset=eval_dataset,
-                tokenizer=tokenizer,
-                # callbacks=[GpuUtilPrintCallBack()],
-            )
-        )
-    else:
-        trainer_kwargs = (
-            dict(
-                prompt_loss_weight=training_args.prompt_loss_weight,
-                model=model,
-                args=training_args,
-                train_dataset=train_dataset,
-                eval_dataset=eval_dataset,
-                tokenizer=tokenizer,
-                dataset_kwargs=training_args.dataset_kwargs,
-                # callbacks=[GpuUtilPrintCallBack()],
-            )
-            if training_args.use_plw
-            else dict(
-                model=model,
-                args=training_args,
-                train_dataset=train_dataset,
-                eval_dataset=eval_dataset,
-                tokenizer=tokenizer,
-                dataset_kwargs=training_args.dataset_kwargs,
-                # callbacks=[GpuUtilPrintCallBack()],
-            )
-        )
+    if get_pkg_version("trl") < "0.13.0":
+        trainer_kwargs["dataset_kwargs"] = training_args.dataset_kwargs
+    if training_args.use_plw:
+        trainer_kwargs["prompt_loss_weight"] = training_args.prompt_loss_weight
 
     if model_args.use_unsloth:
         logger.info("*** use unsloth ***")
@@ -316,9 +283,9 @@ def main():
 
     # Save everything else on main process
     kwargs = {
-        "finetuned_from": model_args.model_name_or_path,
-        "dataset": list(data_args.dataset_mixer.keys()),
-        "dataset_tags": list(data_args.dataset_mixer.keys()),
+        # "finetuned_from": model_args.model_name_or_path, # modify for sfttrainer latest update
+        "model_name": model_args.model_name_or_path,
+        "dataset_name": "\n".join(list(data_args.dataset_mixer.keys())),
         "tags": ["alignment-handbook"],
     }
 
