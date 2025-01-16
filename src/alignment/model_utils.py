@@ -27,6 +27,7 @@ from transformers.trainer_utils import get_last_checkpoint
 from accelerate import Accelerator
 from huggingface_hub import list_repo_files
 from peft import LoraConfig, PeftConfig
+from plw_trainer import PLW_sample_chat_template
 
 from .configs import DataArguments, ModelArguments
 from .data import DEFAULT_CHAT_TEMPLATE
@@ -176,8 +177,12 @@ def get_tokenizer(
 
     if data_args.chat_template is not None:
         tokenizer.chat_template = data_args.chat_template
+    elif train_args.use_plw_sample_template:
+        tokenizer.chat_template = PLW_sample_chat_template()
     elif auto_set_chat_template and tokenizer.chat_template is None:
         tokenizer.chat_template = DEFAULT_CHAT_TEMPLATE
+    else:
+        print(f"will use \n\n {tokenizer.chat_template} \n\n as chat tempalte")
 
     tokenizer.pad_to_multiple_of = 8
 
