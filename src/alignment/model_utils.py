@@ -27,10 +27,10 @@ from transformers.trainer_utils import get_last_checkpoint
 from accelerate import Accelerator
 from huggingface_hub import list_repo_files
 from peft import LoraConfig, PeftConfig
-from plw_trainer import PLW_sample_chat_template
 
 from .configs import DataArguments, ModelArguments
 from .data import DEFAULT_CHAT_TEMPLATE
+from .plw_trainer import PLW_sample_chat_template
 
 
 def get_current_device() -> int:
