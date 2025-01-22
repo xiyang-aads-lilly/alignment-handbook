@@ -223,11 +223,13 @@ def main():
     )
 
     if get_pkg_version("transformers") >= "5.0.0":
-        trainer_kwargs["processing_class"] = training_args.tokenizer
+        trainer_kwargs["processing_class"] = tokenizer
     else:
-        trainer_kwargs["tokenizer"] = training_args.tokenizer
+        trainer_kwargs["tokenizer"] = tokenizer
+
     if get_pkg_version("trl") < "0.13.0":
         trainer_kwargs["dataset_kwargs"] = training_args.dataset_kwargs
+
     if training_args.use_plw:
         trainer_kwargs["prompt_loss_weight"] = training_args.prompt_loss_weight
 
