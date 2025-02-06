@@ -24,7 +24,7 @@ from transformers import (
 )
 from transformers.trainer_utils import get_last_checkpoint
 
-from accelerate import Accelerator
+# from accelerate import Accelerator
 from huggingface_hub import list_repo_files
 from peft import LoraConfig, PeftConfig
 
@@ -33,15 +33,24 @@ from .data import DEFAULT_CHAT_TEMPLATE
 from .plw_trainer import PLW_sample_chat_template
 
 
-def get_current_device() -> int:
-    """Get the current device. For GPU we return the local process index to enable multiple GPU training."""
-    print(Accelerator().local_process_index)
-    return Accelerator().local_process_index if torch.cuda.is_available() else "cpu"
+# def get_current_device() -> int:
+#     """Get the current device. For GPU we return the local process index to enable multiple GPU training."""
+#     local_index = Accelerator().local_process_index
+#     print(local_index)
+#     return local_index if torch.cuda.is_available() else "cpu"
+
+
+# def get_kbit_device_map():
+#     """Useful for running inference with quantized models by setting `device_map=get_peft_device_map()`"""
+#     try:
+#         return {"": get_current_device()} if torch.cuda.is_available() else None
+#     except:
+#         return int(os.environ.get("LOCAL_RANK", -1))
 
 
 def get_kbit_device_map():
-    """Useful for running inference with quantized models by setting `device_map=get_peft_device_map()`"""
-    return {"": get_current_device()} if torch.cuda.is_available() else None
+    print("get_kbit_device_map\t", os.environ.get("LOCAL_RANK", -1))
+    return int(os.environ.get("LOCAL_RANK", -1))
 
 
 def get_quantization_config(model_args: ModelArguments) -> BitsAndBytesConfig | None:

@@ -18,7 +18,7 @@ sentencepiece>=0.1.99
 tensorboard
 tqdm>=4.64.1
 transformers>=4.39.3
-trl>=0.9.6
+trl>=0.14.0
 wandb
 
 

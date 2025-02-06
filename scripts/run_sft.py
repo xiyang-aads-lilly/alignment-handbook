@@ -123,6 +123,7 @@ def main():
         if model_args.torch_dtype in ["auto", None]
         else getattr(torch, model_args.torch_dtype)
     )
+
     quantization_config = get_quantization_config(model_args)
 
     model_kwargs = dict(
@@ -213,11 +214,14 @@ def main():
     ########################
     # Initialize the Trainer
     ########################
+    peft_config = get_peft_config(model_args)
+
     trainer_kwargs = dict(
         model=model,
         args=training_args,
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,
+        peft_config=peft_config,
         # tokenizer=tokenizer,  #  need to change to procee `processing_class` for later transformer pkg update
         # callbacks=[GpuUtilPrintCallBack()],
     )
@@ -237,7 +241,6 @@ def main():
         logger.info("*** use unsloth ***")
         from alignment.unsloth import get_unsloth_peft_model
 
-        peft_config = get_peft_config(model_args)
         model, tokenizer = get_unsloth_peft_model(
             model_args.model_name_or_path,
             training_args.max_seq_length,

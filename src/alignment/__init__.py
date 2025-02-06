@@ -3,6 +3,7 @@ __version__ = "0.3.0"
 from .configs import (
     DataArguments,
     DPOConfig,
+    GRPOConfig,
     H4ArgumentParser,
     ModelArguments,
     SFTConfig,
@@ -26,6 +27,7 @@ from .utils import GpuUtilPrintCallBack, ProfCallback
 __all__ = [
     "DataArguments",
     "DPOConfig",
+    "GRPOConfig",
     "H4ArgumentParser",
     "ModelArguments",
     "SFTConfig",
