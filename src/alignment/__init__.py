@@ -21,7 +21,7 @@ from .model_utils import (
 )
 from .plw_trainer import PLW_apply_chat_template, PLWTrainer
 from .simpo_trainer import SimPOTrainer
-from .utils import GpuUtilPrintCallBack, ProfCallback
+from .utils import GpuUtilPrintCallBack, ProfCallback, fix_lr_scheduler_kwargs_float
 
 
 __all__ = [

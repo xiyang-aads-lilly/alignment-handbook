@@ -16,6 +16,7 @@
 import logging
 import random
 import sys
+from importlib.metadata import version as get_pkg_version
 from pathlib import Path
 
 
@@ -26,14 +27,14 @@ import torch
 import transformers
 from transformers import AutoModelForCausalLM, set_seed
 
-from alignment import (
+from alignment import (  # decontaminate_humaneval,
     DataArguments,
     DPOConfig,
     H4ArgumentParser,
     ModelArguments,
     ProfCallback,
     apply_chat_template,
-    decontaminate_humaneval,
+    fix_lr_scheduler_kwargs_float,
     get_checkpoint,
     get_datasets,
     get_kbit_device_map,
@@ -42,7 +43,7 @@ from alignment import (
     get_tokenizer,
     is_adapter_model,
 )
-from peft import PeftConfig, PeftModel
+from peft import PeftModel
 from trl import DPOTrainer
 
 
@@ -52,6 +53,9 @@ logger = logging.getLogger(__name__)
 def main():
     parser = H4ArgumentParser((ModelArguments, DataArguments, DPOConfig))
     model_args, data_args, training_args = parser.parse()
+
+    # fix lr_scheduler_kwargs parse float to str
+    fix_lr_scheduler_kwargs_float(training_args)
 
     #######
     # Setup
@@ -71,11 +75,6 @@ def main():
     logger.info(f"Model parameters {model_args}")
     logger.info(f"Data parameters {data_args}")
     logger.info(f"Training/evaluation parameters {training_args}")
-
-    # Check for last checkpoint
-    last_checkpoint = get_checkpoint(training_args)
-    if last_checkpoint is not None and training_args.resume_from_checkpoint is None:
-        logger.info(f"Checkpoint detected, resuming training at {last_checkpoint}.")
 
     # Set seed for reproducibility
     set_seed(training_args.seed)
@@ -107,7 +106,12 @@ def main():
     data_args.truncation_side = (
         "left"  # Truncate from left to ensure we don't lose labels in final turn
     )
-    tokenizer = get_tokenizer(model_args, data_args)
+
+    tokenizer = get_tokenizer(
+        model_args, data_args, training_args, auto_set_chat_template=False
+    )
+    # sync tokenizer max_length with model max_length
+    training_args.max_length = tokenizer.model_max_length
 
     #####################
     # Apply chat template
@@ -122,23 +126,6 @@ def main():
         num_proc=data_args.preprocessing_num_workers,
         remove_columns=column_names,
         desc="Formatting comparisons with prompt template",
-    )
-
-    ##########################
-    # Decontaminate benchmarks
-    ##########################
-    num_raw_train_samples = len(raw_datasets["train"])
-    raw_datasets = raw_datasets.filter(
-        decontaminate_humaneval,
-        fn_kwargs={"text_column": "text_chosen"},
-        batched=True,
-        batch_size=10_000,
-        num_proc=1,
-        desc="Decontaminating HumanEval samples",
-    )
-    num_filtered_train_samples = num_raw_train_samples - len(raw_datasets["train"])
-    logger.info(
-        f"Decontaminated {num_filtered_train_samples} ({num_filtered_train_samples/num_raw_train_samples * 100:.2f}%) samples from the training set."
     )
 
     # Replace column names with what TRL needs, text_chosen -> chosen and text_rejected -> rejected
@@ -181,14 +168,18 @@ def main():
     )
     model = model_args.model_name_or_path
 
+    # peft_config = get_peft_config(model_args)
+    peft_config = None
     if is_adapter_model(model, model_args.model_revision) is True:
         # Load the base model, merge the adapter weights and unload the adapter
         # Note: to run QLoRA, you will need to merge the base model separately as the merged model in 16bit
         logger.info(f"Merging PEFT adapters for {model_args.model_name_or_path}")
 
-        peft_config = PeftConfig.from_pretrained(
-            model_args.model_name_or_path, revision=model_args.model_revision
-        )
+        # peft_config = PeftConfig.from_pretrained(
+        #     model_args.model_name_or_path, revision=model_args.model_revision
+        # )
+        peft_config = get_peft_config(model_args)
+
         model_kwargs = dict(
             revision=model_args.base_model_revision,
             trust_remote_code=model_args.trust_remote_code,
@@ -240,32 +231,44 @@ def main():
     #########################
     # Instantiate DPO trainer
     #########################
-    trainer = DPOTrainer(
-        model,
-        ref_model,
-        model_init_kwargs=model_kwargs,
-        ref_model_init_kwargs=ref_model_kwargs,
+    training_args.model_init_kwargs = model_kwargs
+    training_args.ref_model_init_kwargs = ref_model_kwargs
+
+    trainer_kwargs = dict(
+        model=model,
+        ref_model=ref_model,
         args=training_args,
-        beta=training_args.beta,
         train_dataset=raw_datasets["train"],
         eval_dataset=raw_datasets["test"],
-        tokenizer=tokenizer,
-        max_length=training_args.max_length,
-        max_prompt_length=training_args.max_prompt_length,
-        peft_config=get_peft_config(model_args),
-        loss_type=training_args.loss_type,
-        callbacks=[],  # [ProfCallback(prof)],
+        peft_config=peft_config,
+        # callbacks=[GpuUtilPrintCallBack()],
     )
+
+    if get_pkg_version("transformers") >= "5.0.0" or get_pkg_version("trl") >= "0.16.0":
+        trainer_kwargs["processing_class"] = tokenizer
+    else:
+        trainer_kwargs["tokenizer"] = tokenizer
+
+    trainer = DPOTrainer(**trainer_kwargs)
 
     ###############
     # Training loop
     ###############
     checkpoint = None
+
+    # Check for last checkpoint
+    last_checkpoint = get_checkpoint(training_args)
+
+    if last_checkpoint is not None and training_args.resume_from_checkpoint is None:
+        logger.info(f"Checkpoint detected, resuming training at {last_checkpoint}.")
+
     if training_args.resume_from_checkpoint is not None:
         checkpoint = training_args.resume_from_checkpoint
     elif last_checkpoint is not None:
         checkpoint = last_checkpoint
+
     train_result = trainer.train(resume_from_checkpoint=checkpoint)
+
     metrics = train_result.metrics
     metrics["train_samples"] = len(raw_datasets["train"])
     trainer.log_metrics("train", metrics)
@@ -303,10 +306,6 @@ def main():
         metrics["eval_samples"] = len(raw_datasets["test"])
         trainer.log_metrics("eval", metrics)
         trainer.save_metrics("eval", metrics)
-
-    if training_args.push_to_hub is True:
-        logger.info("Pushing to hub...")
-        trainer.push_to_hub(**kwargs)
 
     # torch.cuda.memory._dump_snapshot(
     #     Path(training_args.output_dir) / "GPU_RAM_PROFILE.pickle"

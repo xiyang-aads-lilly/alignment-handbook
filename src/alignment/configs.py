@@ -110,6 +110,7 @@ class H4ArgumentParser(HfArgumentParser):
 
         if len(output) == 1:
             output = output[0]
+
         return output
 
 

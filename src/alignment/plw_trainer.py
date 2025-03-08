@@ -68,23 +68,14 @@ class PLWTrainer(SFTTrainer):
     def _prepare_dataset(
         self,
         dataset,
-        tokenizer,
+        processing_class,
+        args,
         packing,
-        dataset_text_field,
-        max_seq_length,
         formatting_func,
-        num_of_sequences,
-        chars_per_token,
-        remove_unused_columns=True,
-        append_concat_token=True,
-        add_special_tokens=True,
-        skip_prepare_dataset=False,
+        dataset_name,
     ):
         if dataset is None:
             raise ValueError("The dataset should not be None")
-
-        if skip_prepare_dataset:
-            return dataset
 
         # If the dataset is already preprocessed (tokenized), return as-is. Only works if dataset is
         # a datasets.Dataset or datasets.IterableDataset -- not for torch Dataset
@@ -121,7 +112,7 @@ class PLWTrainer(SFTTrainer):
             completion_masks = []
 
             for prmp, lab in zip(prompts, labels):
-                p = tokenizer(
+                p = processing_class(
                     prmp,
                     add_special_tokens=False,
                     truncation=False,
@@ -130,7 +121,7 @@ class PLWTrainer(SFTTrainer):
                     return_length=True,
                 )
 
-                l = tokenizer(
+                l = processing_class(
                     lab,
                     add_special_tokens=False,
                     truncation=False,
@@ -141,7 +132,7 @@ class PLWTrainer(SFTTrainer):
 
                 p_len = p["length"][0]
                 l_len = l["length"][0]
-                gap_len = p_len + l_len - tokenizer.model_max_length
+                gap_len = p_len + l_len - processing_class.model_max_length
 
                 new_input_ids = p["input_ids"] + l["input_ids"]
                 new_attn_mask = p["attention_mask"] + l["attention_mask"]
@@ -171,6 +162,5 @@ class PLWTrainer(SFTTrainer):
             tokenize,
             batched=True,
             remove_columns=dataset.column_names,
-            num_proc=self.dataset_num_proc,
-            batch_size=self.dataset_batch_size,
+            num_proc=args.dataset_num_proc,
         )

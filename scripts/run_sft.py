@@ -42,6 +42,7 @@ from alignment import (
     PLWTrainer,
     SFTConfig,
     apply_chat_template,
+    fix_lr_scheduler_kwargs_float,
     get_checkpoint,
     get_datasets,
     get_kbit_device_map,
@@ -58,6 +59,7 @@ logger = logging.getLogger(__name__)
 def main():
     parser = H4ArgumentParser((ModelArguments, DataArguments, SFTConfig))
     model_args, data_args, training_args = parser.parse()
+    fix_lr_scheduler_kwargs_float(training_args)
 
     # Set seed for reproducibility
     set_seed(training_args.seed)
@@ -226,7 +228,7 @@ def main():
         # callbacks=[GpuUtilPrintCallBack()],
     )
 
-    if get_pkg_version("transformers") >= "5.0.0":
+    if get_pkg_version("transformers") >= "5.0.0" or get_pkg_version("trl") >= "0.16.0":
         trainer_kwargs["processing_class"] = tokenizer
     else:
         trainer_kwargs["tokenizer"] = tokenizer

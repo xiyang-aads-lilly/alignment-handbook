@@ -178,15 +178,23 @@ def get_tokenizer(
 
     # Set reasonable default for models without max length
     # set tokenizer model max length from args
-    if train_args:
-        tokenizer.model_max_length = train_args.max_seq_length
+    # TODO: Need to pay attention here
+    if (
+        getattr(train_args, "max_seq_length", None)
+        and tokenizer.model_max_length > 128000
+    ):
+        tokenizer.model_max_length = min(train_args.max_seq_length, 128000)
 
-    if tokenizer.model_max_length > 128000:
-        tokenizer.model_max_length = 8192
+    if (
+        getattr(train_args, "max_length", None)
+        and getattr(train_args, "max_seq_length", None) is None
+        and tokenizer.model_max_length > 128000
+    ):
+        tokenizer.model_max_length = min(train_args.max_length, 128000)
 
     if data_args.chat_template is not None:
         tokenizer.chat_template = data_args.chat_template
-    elif train_args.use_plw_sample_template:
+    elif getattr(train_args, "use_plw_sample_template", False):
         tokenizer.chat_template = PLW_sample_chat_template()
     elif auto_set_chat_template and tokenizer.chat_template is None:
         tokenizer.chat_template = DEFAULT_CHAT_TEMPLATE

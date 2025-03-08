@@ -40,3 +40,15 @@ class ProfCallback(TrainerCallback):
 
     def on_step_end(self, args, state, control, **kwargs):
         self.prof.step()
+
+
+def fix_lr_scheduler_kwargs_float(training_args):
+    if getattr(training_args, "lr_scheduler_kwargs").get("min_lr", None):
+        training_args.lr_scheduler_kwargs["min_lr"] = float(
+            training_args.lr_scheduler_kwargs["min_lr"]
+        )
+
+    if getattr(training_args, "lr_scheduler_kwargs").get("min_lr_rate", None):
+        training_args.lr_scheduler_kwargs["min_lr_rate"] = float(
+            training_args.lr_scheduler_kwargs["min_lr_rate"]
+        )
