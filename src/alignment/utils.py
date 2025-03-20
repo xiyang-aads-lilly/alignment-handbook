@@ -52,3 +52,21 @@ def fix_lr_scheduler_kwargs_float(training_args):
         training_args.lr_scheduler_kwargs["min_lr_rate"] = float(
             training_args.lr_scheduler_kwargs["min_lr_rate"]
         )
+
+
+def check_length(sample, tokenizer, max_pls, max_cls):
+    prompt_length = tokenizer(
+        sample["text_prompt"],
+        return_tensors="pt",
+    )[
+        "input_ids"
+    ].size(dim=-1)
+
+    chosen_length = tokenizer(
+        sample["text_chosen"],
+        return_tensors="pt",
+    )[
+        "input_ids"
+    ].size(dim=-1)
+
+    max_pls.append(prompt_length), max_cls.append(chosen_length)

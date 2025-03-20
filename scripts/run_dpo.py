@@ -43,7 +43,7 @@ from alignment import (  # decontaminate_humaneval,
     get_tokenizer,
     is_adapter_model,
 )
-from peft import PeftModel
+from peft import PeftConfig, PeftModel
 from trl import DPOTrainer
 
 
@@ -168,17 +168,16 @@ def main():
     )
     model = model_args.model_name_or_path
 
-    # peft_config = get_peft_config(model_args)
-    peft_config = None
+    peft_config = get_peft_config(model_args)
+
     if is_adapter_model(model, model_args.model_revision) is True:
         # Load the base model, merge the adapter weights and unload the adapter
         # Note: to run QLoRA, you will need to merge the base model separately as the merged model in 16bit
         logger.info(f"Merging PEFT adapters for {model_args.model_name_or_path}")
 
-        # peft_config = PeftConfig.from_pretrained(
-        #     model_args.model_name_or_path, revision=model_args.model_revision
-        # )
-        peft_config = get_peft_config(model_args)
+        peft_config = PeftConfig.from_pretrained(
+            model_args.model_name_or_path, revision=model_args.model_revision
+        )
 
         model_kwargs = dict(
             revision=model_args.base_model_revision,
@@ -281,6 +280,8 @@ def main():
     # Save model and create model card
     ##################################
     logger.info("*** Save model ***")
+    if trainer.is_fsdp_enabled:
+        trainer.accelerator.state.fsdp_plugin.set_state_dict_type("FULL_STATE_DICT")
     trainer.save_model(training_args.output_dir)
     logger.info(f"Model saved to {training_args.output_dir}")
 

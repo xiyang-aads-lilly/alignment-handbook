@@ -16,18 +16,24 @@
 import logging
 import random
 import sys
+from importlib.metadata import version as get_pkg_version
+from pathlib import Path
 from typing import Any, Dict
 
 import torch
 import transformers
 from transformers import AutoModelForCausalLM, set_seed
 
+
+p = Path(__file__).parent.parent / "src"
+sys.path.append(p.as_posix())
+
 from alignment import (
     DataArguments,
     H4ArgumentParser,
     ModelArguments,
     apply_chat_template,
-    decontaminate_humaneval,
+    fix_lr_scheduler_kwargs_float,
     get_checkpoint,
     get_datasets,
     get_kbit_device_map,
@@ -44,6 +50,12 @@ logger = logging.getLogger(__name__)
 def main():
     parser = H4ArgumentParser((ModelArguments, DataArguments, ORPOConfig))
     model_args, data_args, training_args = parser.parse()
+
+    # fix lr_scheduler_kwargs parse float to str
+    fix_lr_scheduler_kwargs_float(training_args)
+
+    # Truncate from left to ensure we don't lose labels in final turn
+    data_args.truncation_side = "left"
 
     #######
     # Setup
@@ -63,11 +75,6 @@ def main():
     logger.info(f"Model parameters {model_args}")
     logger.info(f"Data parameters {data_args}")
     logger.info(f"Training/evaluation parameters {training_args}")
-
-    # Check for last checkpoint
-    last_checkpoint = get_checkpoint(training_args)
-    if last_checkpoint is not None and training_args.resume_from_checkpoint is None:
-        logger.info(f"Checkpoint detected, resuming training at {last_checkpoint=}.")
 
     # Set seed for reproducibility
     set_seed(training_args.seed)
@@ -93,10 +100,14 @@ def main():
     #####################################
     # Load tokenizer and process datasets
     #####################################
-    data_args.truncation_side = (
-        "left"  # Truncate from left to ensure we don't lose labels in final turn
+    tokenizer = get_tokenizer(
+        model_args, data_args, training_args, auto_set_chat_template=False
     )
-    tokenizer = get_tokenizer(model_args, data_args)
+    training_args.max_length = tokenizer.model_max_length
+    training_args.max_prompt_length = data_args.max_prompt_length
+    training_args.max_completion_length = (
+        training_args.max_length - training_args.max_prompt_length
+    )
 
     torch_dtype = (
         model_args.torch_dtype
@@ -115,6 +126,8 @@ def main():
         device_map=get_kbit_device_map() if quantization_config is not None else None,
         quantization_config=quantization_config,
     )
+
+    peft_config = get_peft_config(model_args)
 
     # For ChatML we need to add special tokens and resize the embedding layer
     if "<|im_start|>" in tokenizer.chat_template:
@@ -137,53 +150,33 @@ def main():
 
     #############################
     # Filter out seq > max_length
-    #############################
-    if training_args.max_prompt_length is not None:
-        unfiltered_train_samples = len(raw_datasets["train"])
-        if "test" in raw_datasets:
-            unfiltered_test_samples = len(raw_datasets["test"])
+    # #############################
+    def check_length(sample):
+        prompt_length = tokenizer(
+            sample["text_prompt"],
+            return_tensors="pt",
+        )[
+            "input_ids"
+        ].size(dim=-1)
 
-        def filter_fn(sample: Dict[str, Any]) -> Dict[str, Any]:
-            prompt_length = tokenizer(
-                sample["text_prompt"],
-                return_tensors="pt",
-            )[
-                "input_ids"
-            ].size(dim=-1)
+        chosen_length = tokenizer(
+            sample["text_chosen"],
+            return_tensors="pt",
+        )[
+            "input_ids"
+        ].size(dim=-1)
 
-            return prompt_length < training_args.max_prompt_length
-
-        raw_datasets = raw_datasets.filter(
-            filter_fn,
-            desc="Filtering out the samples where len(text_prompt) > max_prompt_length",
-        )
-
-        filtered_train_samples = unfiltered_train_samples - len(raw_datasets["train"])
-        logger.info(
-            f"Filtered out {filtered_train_samples} training samples out of the {unfiltered_train_samples} samples."
-        )
-        if "test" in raw_datasets:
-            filtered_test_samples = unfiltered_test_samples - len(raw_datasets["test"])
-            logger.info(
-                f"Filtered out {filtered_test_samples} test samples out of the {unfiltered_test_samples} samples."
+        if prompt_length > training_args.max_prompt_length:
+            logger.warning(
+                f"{'*' * 20}\n\nSample {sample}'s prompt length is greater than max prompt length {training_args.max_prompt_length}\n\n{'*' * 20}"
             )
 
-    ##########################
-    # Decontaminate benchmarks
-    ##########################
-    num_raw_train_samples = len(raw_datasets["train"])
-    raw_datasets = raw_datasets.filter(
-        decontaminate_humaneval,
-        fn_kwargs={"text_column": "text_chosen"},
-        batched=True,
-        batch_size=10_000,
-        num_proc=1,
-        desc="Decontaminating HumanEval samples",
-    )
-    num_filtered_train_samples = num_raw_train_samples - len(raw_datasets["train"])
-    logger.info(
-        f"Decontaminated {num_filtered_train_samples} ({num_filtered_train_samples/num_raw_train_samples * 100:.2f}%) samples from the training set."
-    )
+        if chosen_length > training_args.max_completion_length:
+            logger.warning(
+                f"{'*' * 20}\n\nSample {sample}'s chosen length is greater than max prompt length {training_args.max_prompt_length}\n\n{'*' * 20}"
+            )
+
+    raw_datasets.filter(check_length)
 
     # Replace column names with what TRL needs, text_prompt -> prompt, text_chosen -> chosen and text_rejected -> rejected
     for split in raw_datasets.keys():
@@ -196,38 +189,52 @@ def main():
         )
 
     # Log a few random samples from the training set:
-    for index in random.sample(range(len(raw_datasets["train"])), 3):
-        logger.info(
-            f"Prompt sample {index} of the raw training set:\n\n{raw_datasets['train'][index]['prompt']}"
-        )
-        logger.info(
-            f"Chosen sample {index} of the raw training set:\n\n{raw_datasets['train'][index]['chosen']}"
-        )
-        logger.info(
-            f"Rejected sample {index} of the raw training set:\n\n{raw_datasets['train'][index]['rejected']}"
-        )
+    # for index in random.sample(range(len(raw_datasets["train"])), 3):
+    #     logger.info(
+    #         f"Prompt sample {index} of the raw training set:\n\n{raw_datasets['train'][index]['prompt']}"
+    #     )
+    #     logger.info(
+    #         f"Chosen sample {index} of the raw training set:\n\n{raw_datasets['train'][index]['chosen']}"
+    #     )
+    #     logger.info(
+    #         f"Rejected sample {index} of the raw training set:\n\n{raw_datasets['train'][index]['rejected']}"
+    #     )
 
     ##########################
     # Instantiate ORPO trainer
     ##########################
-    trainer = ORPOTrainer(
-        model,
+    trainer_kwargs = dict(
+        model=model,
         args=training_args,
         train_dataset=raw_datasets["train"],
         eval_dataset=raw_datasets["test"] if "test" in raw_datasets else None,
-        tokenizer=tokenizer,
-        peft_config=get_peft_config(model_args),  # type: ignore
+        peft_config=peft_config,
+        # callbacks=[GpuUtilPrintCallBack()],
     )
+
+    if get_pkg_version("transformers") >= "5.0.0" or get_pkg_version("trl") >= "0.15.0":
+        trainer_kwargs["processing_class"] = tokenizer
+    else:
+        trainer_kwargs["tokenizer"] = tokenizer
+
+    trainer = ORPOTrainer(**trainer_kwargs)
 
     ###############
     # Training loop
     ###############
+    # Check for last checkpoint
+    last_checkpoint = get_checkpoint(training_args)
+    if last_checkpoint is not None and training_args.resume_from_checkpoint is None:
+        logger.info(f"Checkpoint detected, resuming training at {last_checkpoint=}.")
+
     checkpoint = None
     if training_args.resume_from_checkpoint is not None:
         checkpoint = training_args.resume_from_checkpoint
     elif last_checkpoint is not None:
         checkpoint = last_checkpoint
+
     train_result = trainer.train(resume_from_checkpoint=checkpoint)
+
     metrics = train_result.metrics
     metrics["train_samples"] = len(raw_datasets["train"])
     trainer.log_metrics("train", metrics)
@@ -247,9 +254,9 @@ def main():
 
     # Save everything else on main process
     kwargs = {
-        "finetuned_from": model_args.model_name_or_path,
-        "dataset": list(data_args.dataset_mixer.keys()),
-        "dataset_tags": list(data_args.dataset_mixer.keys()),
+        # "finetuned_from": model_args.model_name_or_path, # modify for sfttrainer latest update
+        "model_name": model_args.model_name_or_path,
+        "dataset_name": "\n".join(list(data_args.dataset_mixer.keys())),
         "tags": ["alignment-handbook"],
     }
     if trainer.accelerator.is_main_process:
@@ -267,10 +274,6 @@ def main():
         metrics["eval_samples"] = len(raw_datasets["test"])
         trainer.log_metrics("eval", metrics)
         trainer.save_metrics("eval", metrics)
-
-    if training_args.push_to_hub is True:
-        logger.info("Pushing to hub...")
-        trainer.push_to_hub(**kwargs)
 
     logger.info("*** Training complete! ***")
 
