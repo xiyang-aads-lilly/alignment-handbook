@@ -14,11 +14,9 @@
 # limitations under the License.
 
 import logging
-import random
 import sys
 from importlib.metadata import version as get_pkg_version
 from pathlib import Path
-from typing import Any, Dict
 
 import torch
 import transformers
@@ -104,7 +102,7 @@ def main():
         model_args, data_args, training_args, auto_set_chat_template=False
     )
     training_args.max_length = tokenizer.model_max_length
-    training_args.max_prompt_length = data_args.max_prompt_length
+    # training_args.max_prompt_length = training_args.max_prompt_length
     training_args.max_completion_length = (
         training_args.max_length - training_args.max_prompt_length
     )
