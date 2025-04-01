@@ -30,6 +30,7 @@ from alignment import (
     DataArguments,
     H4ArgumentParser,
     ModelArguments,
+    ORPOTrainerPatch,
     apply_chat_template,
     fix_lr_scheduler_kwargs_float,
     get_checkpoint,
@@ -101,7 +102,7 @@ def main():
     tokenizer = get_tokenizer(
         model_args, data_args, training_args, auto_set_chat_template=False
     )
-    training_args.max_length = tokenizer.model_max_length
+    # training_args.max_length = tokenizer.model_max_length
     # training_args.max_prompt_length = training_args.max_prompt_length
     training_args.max_completion_length = (
         training_args.max_length - training_args.max_prompt_length
@@ -149,6 +150,9 @@ def main():
     #############################
     # Filter out seq > max_length
     # #############################
+    max_cls = []
+    max_pls = []
+
     def check_length(sample):
         prompt_length = tokenizer(
             sample["text_prompt"],
@@ -164,14 +168,16 @@ def main():
             "input_ids"
         ].size(dim=-1)
 
+        max_pls.append(prompt_length), max_cls.append(chosen_length)
+
         if prompt_length > training_args.max_prompt_length:
             logger.warning(
-                f"{'*' * 20}\n\nSample {sample}'s prompt length is greater than max prompt length {training_args.max_prompt_length}\n\n{'*' * 20}"
+                f"{'*' * 20}\n\nSample {sample['text_prompt']}'s prompt length is greater than max prompt length {training_args.max_prompt_length}\n\n{'*' * 20}"
             )
 
         if chosen_length > training_args.max_completion_length:
             logger.warning(
-                f"{'*' * 20}\n\nSample {sample}'s chosen length is greater than max prompt length {training_args.max_prompt_length}\n\n{'*' * 20}"
+                f"{'*' * 20}\n\nSample {sample['text_chosen']}'s chosen length is greater than max prompt length {training_args.max_prompt_length}\n\n{'*' * 20}"
             )
 
     raw_datasets.filter(check_length)
@@ -215,7 +221,8 @@ def main():
     else:
         trainer_kwargs["tokenizer"] = tokenizer
 
-    trainer = ORPOTrainer(**trainer_kwargs)
+    # trainer = ORPOTrainer(**trainer_kwargs)
+    trainer = ORPOTrainerPatch(**trainer_kwargs)
 
     ###############
     # Training loop

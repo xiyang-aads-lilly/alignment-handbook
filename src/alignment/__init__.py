@@ -19,6 +19,7 @@ from .model_utils import (
     is_adapter_model,
     tokenizer_and_embedding_resize,
 )
+from .orpo_trainer_patch import ORPOTrainerPatch
 from .plw_trainer import PLW_apply_chat_template, PLWTrainer
 from .simpo_trainer import SimPOTrainer
 from .utils import GpuUtilPrintCallBack, ProfCallback, fix_lr_scheduler_kwargs_float
@@ -42,4 +43,5 @@ __all__ = [
     "PLW_apply_chat_template",
     "PLWTrainer",
     "SimPOTrainer",
+    "ORPOTrainerPatch",
 ]
