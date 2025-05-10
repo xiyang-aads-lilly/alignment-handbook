@@ -172,3 +172,4 @@ experiments/*
 !experiments/README.md
 !experiments/util.sh
 */sang_project/*
+*/sang/*

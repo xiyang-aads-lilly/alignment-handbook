@@ -1,19 +1,20 @@
 # Model arguments
-model_name_or_path: /home/l069561/project/models/Meta-Llama-3.1-8B-Instruct
+model_name_or_path: /home/l069561/project/models/Meta-Llama-3-8B
 model_revision: main
 torch_dtype: bfloat16
-attn_implementation: flash_attention_2
+attn_implementation: flash_attention_2 # eager
 
 # Data training arguments
-# chat_template: "{% for message in messages %}\n{% if message['role'] == 'user' %}\n{{ '<|user|>\n' + message['content'] + eos_token }}\n{% elif message['role'] == 'system' %}\n{{ '<|system|>\n' + message['content'] + eos_token }}\n{% elif message['role'] == 'assistant' %}\n{{ '<|assistant|>\n'  + message['content'] + eos_token }}\n{% endif %}\n{% if loop.last and add_generation_prompt %}\n{{ '<|assistant|>' }}\n{% endif %}\n{% endfor %}"
+# we can set chat template here or use model default or PLW trainer has its own template if model has no template
+# chat_template: "{% if messages[0]['role'] == 'system' %}{% set system_message = '### System Instruction: ' + messages[0]['content'] | trim + '' %}{% set messages = messages[1:] %}{% else %}{% set system_message = '' %}{% endif %}{{ bos_token + system_message }}{% for message in messages %}{% if (message['role'] == 'user') != (loop.index0 % 2 == 0) %}{{ raise_exception('Conversation roles must alternate user/assistant/user/assistant/...') }}{% endif %}{% if message['role'] == 'user' %}{{ '### Context: ' + message['content'] | trim + '' }}{% elif message['role'] == 'assistant' %}{{ '### Result: ' + message['content'] | trim + ' ' + eos_token }}{% endif %}{% endfor %}{% if add_generation_prompt %}{{ '### Result: ' }}{% endif %}"
 dataset_mixer:
   HuggingFaceH4/ultrachat_200k: 1.0
-  /home/l069561/project/alignment-handbook/experiments/extra_sample_training_data: 1.0 # test local dataset
-  # /home/l069561/project/data/sang_data_formatted: 1.0
 dataset_splits:
 - train_sft
 - test_sft
-preprocessing_num_workers: 16
+preprocessing_num_workers: 8
+dataloader_num_workers: 2
+remove_unused_columns: false
 
 # SFT trainer config
 bf16: true
@@ -28,28 +29,36 @@ gradient_checkpointing_kwargs:
 log_level: info
 logging_steps: 5
 logging_strategy: steps
-learning_rate: 1.0e-05
-optim: galore_adamw # adamw_torch paged_adamw_32bit galore_adamw lion_32bit
+learning_rate: 2.0e-05
+lr_scheduler_type: cosine_with_min_lr # cosine_with_min_lr
+lr_scheduler_kwargs:
+  min_lr: 5e-6
+optim: adamw_torch # adamw_torch adamw_torch_fused paged_adamw_32bit galore_adamw lion_32bit
 optim_target_modules: all-linear
 weight_decay: 0.01
-lr_scheduler_type: cosine
-max_seq_length: 8192
+max_seq_length: 12800
 packing: false
 dataset_num_proc: 16
 max_steps: -1
-num_train_epochs: 1
-output_dir: /home/l069561/project/alignment-handbook/experiments/models/llama-3.1-inst-full-ultrachat
+num_train_epochs: 10
+output_dir: /home/l069561/project/alignment-handbook/experiments/models/sft_plw_0.1_Llama-3-8B_full
 overwrite_output_dir: true
 per_device_eval_batch_size: 1
 per_device_train_batch_size: 1 # this is per device, you need to manual calculate global batch by per device * gas * gpu * node
-gradient_accumulation_steps: 4
+gradient_accumulation_steps: 8
 push_to_hub: false
-remove_unused_columns: true
 report_to:
-- tensorboard
 - wandb
-save_strategy: "steps"
-save_steps: 100
-save_total_limit: 1
+- tensorboard
+save_strategy: "epoch" # "steps"
+save_steps: 1000
+torch_empty_cache_steps: 1000
+save_total_limit: 10
 seed: 42
 warmup_ratio: 0.1
+
+# PLW trainer config
+# set use_plw to false if you want to use default sft trainer from HF TRL package
+prompt_loss_weight: 0.1
+use_plw: true
+use_plw_sample_template: true

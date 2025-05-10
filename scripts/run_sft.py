@@ -253,7 +253,10 @@ def main():
             "<|im_start|>" in tokenizer.chat_template
             and "gemma-tokenizer-chatml" not in tokenizer.name_or_path
         ):
-            model, tokenizer = setup_chat_format(model, tokenizer)
+            try:
+                model, tokenizer = setup_chat_format(model, tokenizer)
+            except:
+                pass
 
         if training_args.use_plw:
             trainer = PLWTrainer(**trainer_kwargs)

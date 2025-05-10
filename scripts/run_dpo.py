@@ -30,6 +30,8 @@ from transformers import AutoModelForCausalLM, set_seed
 from alignment import (  # decontaminate_humaneval,
     DataArguments,
     DPOConfig,
+    DPOShiftConfig,
+    DPOShiftTrainer,
     H4ArgumentParser,
     ModelArguments,
     ProfCallback,

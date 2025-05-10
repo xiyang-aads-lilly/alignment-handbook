@@ -27,7 +27,12 @@
         "overlap_comm": true,
         "reduce_scatter": true,
         "contiguous_gradients": true,
+        "gather_16bit_weights_on_model_save": true,
         "round_robin_gradients": true
+    },
+
+    "tensor_parallel":{
+      "autotp_size": 4
     },
 
     "aio": {

@@ -33,7 +33,7 @@ echo $PRIMARY_PORT
 
 # manually set
 export WANDB_PROJECT="demo_magtrain"
-TRAIN_CONF=${ROOT}/recipes/llama3-8b/sft/config_full.yaml
+TRAIN_CONF=${ROOT}/recipes/llama3-8b/dpo/config_full.yaml
 
 DEEPSPEED_CONF=${ROOT}/recipes/accelerate_configs/deepspeed_zs2.json
 
@@ -43,7 +43,7 @@ torchrun \
     --node_rank=$SLURM_NODEID  \
     --master_addr=$PRIMARY \
     --master_port=$PRIMARY_PORT \
-    ${ROOT}/scripts/run_sft.py \
+    ${ROOT}/scripts/run_dpo.py \
     $TRAIN_CONF \
     --deepspeed=$DEEPSPEED_CONF \
     --tee=2

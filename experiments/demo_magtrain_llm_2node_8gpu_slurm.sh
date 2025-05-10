@@ -4,13 +4,13 @@
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=xi.yang5@lilly.com
 #SBATCH --nodes=2
-#SBATCH --ntasks-per-node=1
+#SBATCH --ntasks-per-node=2
 #SBATCH --gpus-per-node=4
 #SBATCH --gpus-per-task=4
-#SBATCH --cpus-per-task=32
-#SBATCH --mem=512gb
-#SBATCH --time=48:00:00
-#SBATCH --output=/home/l069561/project/log/alignment/sft_%j.out
+#SBATCH --cpus-per-task=48
+#SBATCH --mem=1000gb
+#SBATCH --time=120:00:00
+#SBATCH --output=/home/l069561/project/log/alignment/2node8gpu_%j.out
 #SBATCH --partition=batch
 
 HOME=/home/l069561
@@ -22,8 +22,7 @@ echo $SLURM_NTASKS_PER_NODE
 echo $SLURM_GPUS_ON_NODE
 source ${SCRIPTPATH}/util.sh
 
-CONTAINER=${HOME}/container/pt2402.sif
-# CONTAINER=${HOME}/container/pt2402
+CONTAINER=${HOME}/container/pt2411
 
 export TRITON_HOME=${HOME}/project/cache/triton
 export TRITON_CACHE_DIR=${HOME}/project/cache/triton/cache
@@ -35,18 +34,8 @@ export HF_HOME=${HOME}/project/cache/huggingface
 # export NCCL_DEBUG=WARN
 # export NCCL_SOCKET_IFNAME=bond1
 
+# run sft
 srun --jobid $SLURM_JOB_ID apptainer exec -B $SLURM_TMPDIR:/cache  --nv $CONTAINER bash ${SCRIPTPATH}/demo_magtrain_llm_sft.sh
 
-# use nsys to profile training process
-# srun --jobid $SLURM_JOB_ID \
-#     apptainer exec -B $SLURM_TMPDIR:/cache --nv --fakeroot $CONTAINER \
-#     nsys profile  -s none -t cuda,nvtx \
-#     --gpu-metrics-device=all \
-#     --gpu-metrics-frequency=100 \
-#     --nic-metrics=true \
-#     --capture-range=cudaProfilerApi \
-#     --capture-range-end=stop \
-#     -o $SLURM_TMPDIR/nsys_${SLURM_JOB_ID} \
-#     bash ${SCRIPTPATH}/demo_magtrain_llm_sft.sh
-
-# cp $SLURM_TMPDIR/nsys_${SLURM_JOB_ID}.nsys-rep ${HOME}/project/log/nsys/
+# run dpo
+srun --jobid $SLURM_JOB_ID apptainer exec -B $SLURM_TMPDIR:/cache  --nv $CONTAINER bash ${SCRIPTPATH}/demo_magtrain_llm_dpo.sh

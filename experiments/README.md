@@ -13,16 +13,16 @@ from datasets import load_dataset, Dataset
 my_data = [
     {
         "messages": [
-            {"role": "system", "content": "This is system msg1"}, 
+            {"role": "system", "content": "This is system msg1"},
             {"role": "user", "content": "This is user msg1"},
-            {"role": "assistant", "content": "This is assistant msg1"}, 
+            {"role": "assistant", "content": "This is assistant msg1"},
         ]
     },
      {
         "messages": [
-            {"role": "system", "content": "This is system msg2"}, 
+            {"role": "system", "content": "This is system msg2"},
             {"role": "user", "content": "This is user msg2"},
-            {"role": "assistant", "content": "This is assistant msg2"}, 
+            {"role": "assistant", "content": "This is assistant msg2"},
         ]
     },
 ]
@@ -47,12 +47,28 @@ DatasetDict({
 """
 ```
 
-## ENV
-- update the singulairty container path in `demo_dgx2_launcher.sh`
-- update python virtual environment path in `demo_dgx2.sh`
-
 ## config
 - accelerate configuration is at `recipes/accelerate_configs`
     - recommend to use deepspeed config to launch experiment
-- llama3-8b experiment config is under `recipes/llama3-8b`
-- you can put config whereever you like
+- specific project config examples can be found under `recipes` asscociated with model names
+- see `recipes/llama3-8b` for config example on `sft`, `dpo`, `orpo`
+
+
+## What we support
+- SFT (include qlora)
+- DPO (include qlora)
+- ORPO
+
+## special trainer
+- we support a new trainer called prompt loss token weights (PLW) at `alginment/plw_trainer` for sft, we find it is better than naive sft trainer. ref: https://arxiv.org/abs/2401.13586
+- we also support dpo-shift trainer ref: https://arxiv.org/html/2502.07599v1
+
+## TODO:
+- GRPO pipeline support
+
+## deepspeed
+- we use deepspeed to control distrbuted training
+- check `recipes/accelerate_configs/deepspeed_zs*.json` for different stage config
+- Commonly we use stage2: deepspeed_zs2.json
+- since v0.16.4, HF auto tensor parallel is supported: https://github.com/deepspeedai/DeepSpeed/blob/master/blogs/huggingface-tp/README.md
+- see deepspeed_zs2_with_tp.json for auto tensor parallel usage

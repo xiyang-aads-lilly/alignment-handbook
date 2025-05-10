@@ -9,6 +9,8 @@ from .configs import (
     SFTConfig,
 )
 from .data import apply_chat_template, get_datasets
+
+# from .dpo_shift_trainer import DPOShiftConfig, DPOShiftTrainer
 from .model_utils import (
     add_new_special_token,
     get_checkpoint,
@@ -45,3 +47,7 @@ __all__ = [
     "SimPOTrainer",
     "ORPOTrainerPatch",
 ]
+
+# "DPOShiftConfig",
+# "DPOShiftTrainer",
+# "add_new_special_token",

@@ -12,41 +12,39 @@ dataset_splits:
 - train_prefs
 - test_prefs
 preprocessing_num_workers: 8
+dataset_num_proc: 8
 dataloader_num_workers: 2
-precompute_ref_log_probs: false
-precompute_ref_batch_size: 4
 remove_unused_columns: true
 truncation_mode: "keep_end"  # keep_start
 
 # DPOTrainer arguments
 bf16: true
-beta: 0.5 # underfitting / large data use small beta (0.01);  small dataset / overfitting use large beta (0.5)
-# f_divergence_type: FDivergenceType.REVERSE_KL # reverse_kl; js_divergence; alpha_divergence
-# f_alpha_divergence_coef: 0.5 # only useful when f_divergence_type is alpha_divergence
+beta: 0.05 # underfitting / large data use small beta (0.01);  small dataset / overfitting use large beta (0.5)
 do_eval: true
+disable_dropout: true
 eval_strategy: epoch
 eval_steps: 100
 gradient_accumulation_steps: 4
 gradient_checkpointing: true
 gradient_checkpointing_kwargs:
   use_reentrant: False
-learning_rate: 1.0e-5
+learning_rate: 5.0e-6
 log_level: info
 logging_steps: 5
 logging_strategy: steps
 lr_scheduler_type: cosine_with_min_lr
 lr_scheduler_kwargs:
-  min_lr_rate: 0.05
+  min_lr_rate: 0.5
 # label_smoothing: 0.0 # Robust DPO label smoothing parameter valid range: (0, 0.5)
-max_length: 8192 # not need since we will use tokenizer model max lengthl just use 8192 as placeholder
-max_prompt_length: null # 512
+max_length: 12800 # not need since we will use tokenizer model max lengthl just use 8192 as placeholder
+max_prompt_length: 6400
 max_completion_length: null
 max_grad_norm: 1.0
 max_steps: -1
 num_train_epochs: 5
-loss_type: robust # robust
 optim: adamw_torch_fused #adamw_torch ademamix # https://github.com/huggingface/transformers/blob/94ae1ba5b55e79ba766582de8a199d8ccf24a021/src/transformers/training_args.py#L143
-output_dir: /home/l069561/project/alignment-handbook/experiments/models//home/l069561/project/models/Llama-3.2-3B-Instruct_dpo_full_beta0.5
+# optim_args
+output_dir: /home/l069561/project/alignment-handbook/experiments/models/Llama-3.2-3B-Instruct_orpo_full_beta0.05
 per_device_train_batch_size: 1
 per_device_eval_batch_size: 1
 push_to_hub: false
@@ -55,20 +53,8 @@ report_to:
 # - tensorboard
 save_strategy: epoch
 save_steps: -1
-save_total_limit: 5
+save_total_limit: 10
 seed: 42
 torch_empty_cache_steps: 1000
 warmup_ratio: 0.05
 weight_decay: 0.01
-
-sync_ref_model: false
-ref_model_mixup_alpha: 0.9
-ref_model_sync_steps: 64
-
-# qlora arguments
-load_in_4bit: true
-use_peft: true
-lora_r: 64
-lora_alpha: 64
-lora_dropout: 0.05
-lora_target_modules: all

@@ -1,15 +1,69 @@
 # Model arguments
-model_name_or_path: /home/l069561/project/models/Meta-Llama-3-8B # no chat template
+model_name_or_path: /home/l069561/project/models/Llama-3.2-3B-Instruct
 model_revision: main
 torch_dtype: bfloat16
-use_flash_attention_2: true
+attn_implementation: flash_attention_2
+
+# Data training arguments
+# chat_template: "{% if messages[0]['role'] == 'system' %}{% set system_message = '### System Instruction: ' + messages[0]['content'] | trim + '' %}{% set messages = messages[1:] %}{% else %}{% set system_message = '' %}{% endif %}{{ bos_token + system_message }}{% for message in messages %}{% if (message['role'] == 'user') != (loop.index0 % 2 == 0) %}{{ raise_exception('Conversation roles must alternate user/assistant/user/assistant/...') }}{% endif %}{% if message['role'] == 'user' %}{{ '### Context: ' + message['content'] | trim + '' }}{% elif message['role'] == 'assistant' %}{{ '### Result: ' + message['content'] | trim + ' ' + eos_token }}{% endif %}{% endfor %}{% if add_generation_prompt %}{{ '### Result: ' }}{% endif %}"
+dataset_mixer:
+  HuggingFaceH4/ultrachat_200k: 1.0
+dataset_splits:
+- train_sft
+- test_sft
+preprocessing_num_workers: 8
+dataloader_num_workers: 2
+remove_unused_columns: false
+
+# SFT trainer config
+bf16: true
+do_eval: true
+# evaluation_strategy: epoch
+eval_strategy: epoch
+max_grad_norm: 1.0
+# gradient_accumulation_steps: 16
+gradient_checkpointing: true
+gradient_checkpointing_kwargs:
+  use_reentrant: False
+log_level: info
+logging_steps: 5
+logging_strategy: steps
+learning_rate: 1.0e-05
+lr_scheduler_type: cosine_with_min_lr # cosine_with_min_lr
+lr_scheduler_kwargs:
+  min_lr: 5e-6
+optim: adamw_torch # adamw_torch paged_adamw_32bit galore_adamw lion_32bit
+optim_target_modules: all-linear
+weight_decay: 0.01
+max_seq_length: 12800
+packing: false
+dataset_num_proc: 16
+max_steps: -1
+num_train_epochs: 20
+output_dir: /home/l069561/project/alignment-handbook/experiments/models/Llama-3.2-3B-Instruct_sft_qlora
+overwrite_output_dir: true
+per_device_eval_batch_size: 1
+per_device_train_batch_size: 1 # this is per device, you need to manual calculate global batch by per device * gas * gpu * node
+gradient_accumulation_steps: 8
+push_to_hub: false
+report_to:
+- wandb # - tensorboard
+save_strategy: "epoch" #"steps"
+save_steps: 1000
+torch_empty_cache_steps: 1000
+save_total_limit: 20
+seed: 42
+warmup_ratio: 0.1
+
+prompt_loss_weight: 0.1
+use_plw: false
+use_plw_sample_template: false # since this is inst model, we need to use default chat template
 
 # LoRA arguments
-use_unsloth: false # unsloth not support deepspeed yet
-use_peft: true
 load_in_4bit: true
-lora_r: 32
-lora_alpha: 32
+use_peft: true
+lora_r: 64
+lora_alpha: 64
 lora_dropout: 0.05
 lora_target_modules: all
 # - q_proj
@@ -19,52 +73,3 @@ lora_target_modules: all
 # - gate_proj
 # - up_proj
 # - down_proj
-
-# Data training arguments
-chat_template: "{% if messages[0]['role'] == 'system' %}{% set offset = 1 %}{% else %}{% set offset = 0 %}{% endif %}{{ bos_token }}{% for message in messages %}{% if (message['role'] == 'user') != (loop.index0 % 2 == offset) %}{{ raise_exception('Conversation roles must alternate user/assistant/user/assistant/...') }}{% endif %}{{ '<|im_start|>' + message['role'] + '\\n' + message['content'].strip() + '<|im_end|>\\n' }}{% if loop.last and message['role'] == 'user' and add_generation_prompt %}{{ '<|im_start|>assistant\\n' }}{% endif %}{% endfor %}"
-dataset_mixer:
-  HuggingFaceH4/ultrachat_200k: 1.0
-dataset_splits:
-- train_sft
-- test_sft
-preprocessing_num_workers: 16
-auto_insert_empty_system_msg: true
-
-# SFT trainer config
-bf16: true
-do_eval: true
-evaluation_strategy: epoch
-gradient_checkpointing: true
-gradient_checkpointing_kwargs:
-  use_reentrant: false
-learning_rate: 1.0e-04
-log_level: info
-logging_steps: 5
-logging_strategy: steps
-optim: adamw_torch # adamw_torch paged_adamw_32bit galore_adamw lion_32bit adamw_apex_fused
-# optim_target_modules: all-linear
-weight_decay: 0.01
-lr_scheduler_type: cosine
-max_seq_length: 4096
-max_steps: -1
-num_train_epochs: 1
-output_dir: /home/l069561/project/alignment-handbook/experiments/models/demo-llama-3-8b-qlora-ultrachat
-overwrite_output_dir: true
-per_device_train_batch_size: 4
-gradient_accumulation_steps: 4
-per_device_eval_batch_size: 4
-push_to_hub: false
-report_to:
-- tensorboard
-- wandb
-save_strategy: "steps"
-save_steps: 100
-save_total_limit: 1
-seed: 42
-warmup_ratio: 0.1
-
-torch_compile: false
-# https://pytorch.org/docs/stable/generated/torch.compile.html ('cudagraphs', 'inductor', 'onnxrt', 'openxla', 'openxla_eval', 'tvm'])
-# https://huggingface.co/docs/transformers/perf_train_gpu_one#using-torchcompile
-torch_compile_backend: "inductor"
-torch_compile_mode: "default" # reduce-overhead max-autotune
