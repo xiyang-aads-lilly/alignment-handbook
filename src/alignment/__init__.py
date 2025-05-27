@@ -22,7 +22,7 @@ from .model_utils import (
     tokenizer_and_embedding_resize,
 )
 from .orpo_trainer_patch import ORPOTrainerPatch
-from .plw_trainer import PLW_apply_chat_template, PLWTrainer
+from .plw_trainer import DataCollatorForPlw, PLW_apply_chat_template, PLWTrainer
 from .simpo_trainer import SimPOTrainer
 from .utils import GpuUtilPrintCallBack, ProfCallback, fix_lr_scheduler_kwargs_float
 

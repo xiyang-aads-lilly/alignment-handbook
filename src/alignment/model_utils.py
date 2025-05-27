@@ -176,24 +176,27 @@ def get_tokenizer(
     if data_args.truncation_side is not None:
         tokenizer.truncation_side = data_args.truncation_side
 
-    # Set reasonable default for models without max length
-    # set tokenizer model max length from args
-    # TODO: Need to pay attention here
+    # update tokenizer model max length and sync with training args
+    # retrict the max length allowed to 128000
     MAX_SUPPORTED_LENGTH = 128000
-    if (
-        getattr(train_args, "max_seq_length", None)
-        and tokenizer.model_max_length > MAX_SUPPORTED_LENGTH
-    ):
-        tokenizer.model_max_length = min(
-            train_args.max_seq_length, MAX_SUPPORTED_LENGTH
-        )
+    max_len = train_args.max_length if train_args.max_length else MAX_SUPPORTED_LENGTH
 
-    if (
-        getattr(train_args, "max_length", None)
-        and getattr(train_args, "max_seq_length", None) is None
-        and tokenizer.model_max_length > MAX_SUPPORTED_LENGTH
-    ):
-        tokenizer.model_max_length = min(train_args.max_length, MAX_SUPPORTED_LENGTH)
+    model_config_max_len = AutoConfig.from_pretrained(
+        model_args.model_name_or_path
+    ).max_position_embeddings
+
+    model_config_max_position_embeddings_length = (
+        model_args.max_position_embeddings
+        if model_args.max_position_embeddings
+        else model_config_max_len
+    )
+
+    tokenizer.model_max_length = min(
+        max_len, MAX_SUPPORTED_LENGTH, model_config_max_position_embeddings_length
+    )
+
+    # sync max length
+    train_args.max_length = tokenizer.model_max_length
 
     if data_args.chat_template is not None:
         tokenizer.chat_template = data_args.chat_template

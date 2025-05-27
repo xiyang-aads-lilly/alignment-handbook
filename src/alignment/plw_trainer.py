@@ -1,10 +1,48 @@
 import warnings
+from dataclasses import dataclass
 
 import datasets
 import torch
 from torch.nn import CrossEntropyLoss
+from transformers.data.data_collator import DataCollatorMixin
 
 from trl import SFTTrainer
+from trl.trainer.utils import pad
+
+
+@dataclass
+class DataCollatorForPlw(DataCollatorMixin):
+    pad_token_id: int
+    completion_only_loss: bool = False
+    return_tensors: str = "pt"
+
+    def torch_call(self, examples):
+        # Convert to tensor
+        input_ids = [torch.tensor(example["input_ids"]) for example in examples]
+        attention_mask = [
+            torch.tensor(example["attention_mask"]) for example in examples
+        ]
+        labels = [torch.tensor(example["input_ids"]) for example in examples]
+        prompt_mask = [torch.tensor(example["prompt_mask"]) for example in examples]
+        completion_mask = [
+            torch.tensor(example["completion_mask"]) for example in examples
+        ]
+
+        # Pad
+        output = {}
+        output["input_ids"] = pad(
+            input_ids, padding_value=self.pad_token_id, padding_side="right"
+        )
+        output["attention_mask"] = pad(
+            attention_mask, padding_value=0, padding_side="right"
+        )
+        output["labels"] = pad(labels, padding_value=-100, padding_side="right")
+        output["prompt_mask"] = pad(prompt_mask, padding_value=0, padding_side="right")
+        output["completion_mask"] = pad(
+            completion_mask, padding_value=0, padding_side="right"
+        )
+
+        return output
 
 
 def PLW_sample_chat_template():

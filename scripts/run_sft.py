@@ -35,6 +35,7 @@ from transformers import AutoModelForCausalLM, set_seed
 
 from alignment import (
     DataArguments,
+    DataCollatorForPlw,
     GpuUtilPrintCallBack,
     H4ArgumentParser,
     ModelArguments,
@@ -112,9 +113,12 @@ def main():
     ################
     # Load tokenizer
     ################
+    # Truncate from left to ensure we don't lose labels in final turn
+    data_args.truncation_side = "left"
     tokenizer = get_tokenizer(
         model_args, data_args, training_args, auto_set_chat_template=True
     )
+    print(f"tokenizer: {tokenizer}")
 
     #######################
     # Load pretrained model
@@ -141,17 +145,16 @@ def main():
     model = model_args.model_name_or_path
 
     # For ChatML we need to add special tokens and resize the embedding layer
-    if (
-        "<|im_start|>" in tokenizer.chat_template
-        and "gemma-tokenizer-chatml" not in tokenizer.name_or_path
-        and not model_args.use_unsloth
-    ):
-        model = AutoModelForCausalLM.from_pretrained(
-            model_args.model_name_or_path, **model_kwargs
-        )
-        model, tokenizer = setup_chat_format(model, tokenizer)
-        model_kwargs = None
+    # if (
+    #     "<|im_start|>" in tokenizer.chat_template
+    #     and "gemma-tokenizer-chatml" not in tokenizer.name_or_path
+    #     and not model_args.use_unsloth
+    # ):
+    #     model = AutoModelForCausalLM.from_pretrained(model_args.model_name_or_path, **model_kwargs)
+    #     model, tokenizer = setup_chat_format(model, tokenizer)
+    #     model_kwargs = None
 
+    # assign model_args to model_init_kwargs
     training_args.model_init_kwargs = model_kwargs
 
     #####################
@@ -237,7 +240,11 @@ def main():
         trainer_kwargs["dataset_kwargs"] = training_args.dataset_kwargs
 
     if training_args.use_plw:
+        # training_args.per_device_train_batch_size = 1
+        # training_args.per_device_eval_batch_size = 1
         trainer_kwargs["prompt_loss_weight"] = training_args.prompt_loss_weight
+        # plw data collator
+        trainer_kwargs["data_collator"] = DataCollatorForPlw(tokenizer.pad_token_id)
 
     if model_args.use_unsloth:
         logger.info("*** use unsloth ***")
@@ -245,7 +252,7 @@ def main():
 
         model, tokenizer = get_unsloth_peft_model(
             model_args.model_name_or_path,
-            training_args.max_seq_length,
+            training_args.max_length,
             peft_config.to_dict(),
         )
 

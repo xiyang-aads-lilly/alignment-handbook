@@ -219,7 +219,49 @@ class ModelArguments:
     )
     # use_flash_attention_2: bool = field(default=False)
 
+    # max position embedding scaling
+    max_position_embeddings: Optional[int] = field(
+        default=None,
+        metadata={"help": ("The maximum position embeddings to use.")},
+    )
+
+    rope_scaling_method: Optional[str] = field(
+        default="yarn",
+        metadata={
+            "help": (
+                "The method to use for RoPE scaling. If not set, the default method will be used."
+            )
+        },
+    )
+
+    rope_scaling_factor: Optional[float] = field(
+        default=None,
+        metadata={
+            "help": (
+                "The scaling factor to use for the RoPE embeddings. If not set, the default scaling factor will be used."
+            )
+        },
+    )
+
     def __post_init__(self):
+        # although HF support other methods, we use yarn since it is the most efficient method than dynamic or
+        if self.rope_scaling_factor:
+            if self.rope_scaling_method == "llama3":
+                self.rope_scaling = {
+                    "type": self.rope_scaling_method,
+                    "factor": self.rope_scaling_factor,
+                    "original_max_position_embeddings": 8192,
+                    "high_freq_factor": 4.0,
+                    "low_freq_factor": 1.0,
+                }
+            else:
+                self.rope_scaling = {
+                    "type": self.rope_scaling_method,
+                    "factor": self.rope_scaling_factor,
+                    "original_max_position_embeddings": 8192,
+                }
+            self.max_position_embeddings = self.rope_scaling_factor * 8192
+
         if self.load_in_8bit and self.load_in_4bit:
             raise ValueError("You can't use 8 bit and 4 bit precision at the same time")
 
@@ -298,6 +340,14 @@ class SFTConfig(trl.SFTConfig):
     prompt_loss_weight: float = field(default=0.1)
     use_plw: bool = field(default=False)
     use_plw_sample_template: bool = field(default=False)
+    max_length: Optional[int] = field(
+        default=None,
+        metadata={
+            "help": (
+                "The maximum total input sequence length after tokenization. Sequences longer than this will be truncated, so using a larger value should be used with caution."
+            )
+        },
+    )
 
 
 @dataclass
@@ -318,6 +368,14 @@ class DPOConfig(trl.DPOConfig):
     )
     optim: Optional[str] = field(default="rmsprop")
     remove_unused_columns: bool = field(default=False)
+    max_length: Optional[int] = field(
+        default=None,
+        metadata={
+            "help": (
+                "The maximum total input sequence length after tokenization. Sequences longer than this will be truncated, so using a larger value should be used with caution."
+            )
+        },
+    )
 
 
 @dataclass

@@ -105,15 +105,15 @@ def main():
     #####################################
     # Load tokenizer and process datasets
     #####################################
-    data_args.truncation_side = (
-        "left"  # Truncate from left to ensure we don't lose labels in final turn
-    )
+    # Truncate from left to ensure we don't lose labels in final turn
+    data_args.truncation_side = "left"
 
     tokenizer = get_tokenizer(
         model_args, data_args, training_args, auto_set_chat_template=False
     )
-    # sync tokenizer max_length with model max_length
-    training_args.max_length = tokenizer.model_max_length
+    training_args.max_completion_length = (
+        training_args.max_length - training_args.max_prompt_length
+    )
 
     #####################
     # Apply chat template

@@ -36,7 +36,7 @@ lr_scheduler_kwargs:
 optim: adamw_torch # adamw_torch adamw_torch_fused paged_adamw_32bit galore_adamw lion_32bit
 optim_target_modules: all-linear
 weight_decay: 0.01
-max_seq_length: 12800
+max_length: null
 packing: false
 dataset_num_proc: 16
 max_steps: -1

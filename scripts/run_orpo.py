@@ -222,6 +222,8 @@ def main():
         trainer_kwargs["tokenizer"] = tokenizer
 
     # trainer = ORPOTrainer(**trainer_kwargs)
+    # TODO: check if TRL fix the ORPO trainer clip issue which can cause overflow error
+    # IF not, use the ORPOTrainerPatch
     trainer = ORPOTrainerPatch(**trainer_kwargs)
 
     ###############
