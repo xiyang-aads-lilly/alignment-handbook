@@ -118,7 +118,7 @@ def main():
     tokenizer = get_tokenizer(
         model_args, data_args, training_args, auto_set_chat_template=True
     )
-    print(f"tokenizer: {tokenizer}")
+    logger.info(f"tokenizer: {tokenizer}")
 
     #######################
     # Load pretrained model
@@ -240,11 +240,11 @@ def main():
         trainer_kwargs["dataset_kwargs"] = training_args.dataset_kwargs
 
     if training_args.use_plw:
-        # training_args.per_device_train_batch_size = 1
-        # training_args.per_device_eval_batch_size = 1
+        training_args.per_device_train_batch_size = 1
+        training_args.per_device_eval_batch_size = 1
         trainer_kwargs["prompt_loss_weight"] = training_args.prompt_loss_weight
         # plw data collator
-        trainer_kwargs["data_collator"] = DataCollatorForPlw(tokenizer.pad_token_id)
+        # trainer_kwargs["data_collator"] = DataCollatorForPlw(tokenizer.pad_token_id)
 
     if model_args.use_unsloth:
         logger.info("*** use unsloth ***")
